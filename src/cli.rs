@@ -1,3 +1,40 @@
+//! # Flipper CLI
+//!
+//! A client for communicating with Flipper Zero devices over a serial port using Protobuf RPC.
+//!
+//! This crate provides a `Cli` struct which manages an RPC session, sending and receiving messages
+//! defined in the `proto` module.
+//!
+//! ## Examples
+//!
+//! ```no_run
+//! use flipper_cli::Cli;
+//! use flipper_cli::error::Result;
+//!
+//! # fn main() -> Result<()> {
+//! // List available Flipper devices
+//! if let Some(ports) = Cli::flipper_ports() {
+//!     for (port_name, product) in ports {
+//!         println!("Found {} on {}", product, port_name);
+//!     }
+//! }
+//!
+//! // Connect to first device
+//! let mut cli = Cli::new("/dev/ttyUSB0".to_string())?;
+//!
+//! // Send a ping RPC message
+//! let ping = proto::Main::default();
+//! cli.send_rpc_proto(ping)?;
+//!
+//! // Read response
+//! let response = cli.read_rpc_proto()?;
+//! println!("Received: {:?}", response);
+//! # Ok(())
+//! # }
+//! ```
+
+#![deny(missing_docs)]
+
 use prost::{Message, bytes::Buf};
 use serialport::SerialPort;
 use std::time::Duration;
@@ -6,13 +43,30 @@ use crate::{error::Result, proto, reader_utils::drain_until};
 
 const FLIPPER_BAUD: u32 = 115_200;
 
+/// Flipper RPC communication class
+#[derive(Debug)]
 pub struct Cli {
     command_id: u32,
     port: Box<dyn SerialPort>,
 }
 
 impl Cli {
-    /// (port_name, device_name)
+    /// Lists all connected Flipper devices by USB serial port and product name.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(Vec<(port_name, product_name)>)` if querying ports succeeds.
+    /// - `None` if listing ports fails, or no ports are available.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// if let Some(devices) = Cli::flipper_ports() {
+    ///     for (port, name) in devices {
+    ///         println!("{}: {}", port, name);
+    ///     }
+    /// }
+    /// ```
     pub fn flipper_ports() -> Option<Vec<(String, String)>> {
         serialport::available_ports().ok().map(|ports| {
             ports
@@ -31,16 +85,32 @@ impl Cli {
         })
     }
 
+    /// Opens a new CLI session on the given serial port path.
+    ///
+    /// Initialize the serial connection and start an RPC session.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the port cannot be opened, initialization commands fail, or
+    /// the RPC banner prompt is not received.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let mut cli = Cli::new("/dev/ttyACM0".to_string())?;
+    /// ```
     pub fn new(port: String) -> Result<Self> {
         let mut port = serialport::new(port, FLIPPER_BAUD)
             .timeout(Duration::from_secs(2))
             .open()?;
 
+        // INFO: Drains port until tty prompt
         drain_until(&mut port, ">: ", Duration::from_secs(2))?;
 
         port.write_all("start_rpc_session\r".as_bytes())?;
         port.flush()?;
 
+        // INFO: Waits till start_rpc_session responds
         drain_until(&mut port, "\n", Duration::from_secs(2))?;
 
         Ok(Self {
@@ -49,21 +119,55 @@ impl Cli {
         })
     }
 
-    /// Command ID is ignored, it gets reset to the internal counter's value
-    pub fn send_rpc_proto(&mut self, rpc: proto::Main) -> Result<()> {
-        let mut rpc = rpc;
+    /// Sends a length-delimited Protobuf RPC message to the Flipper.
+    ///
+    /// The internal command counter is used to set `command_id` on the message, whatever value is
+    /// set in `rpc` will be overwritten
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the message cannot be encoded or written to the port.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let ping = proto::Main {
+    /// command_id: 0,
+    ///     command_status: proto::CommandStatus::Ok.into(),
+    ///     has_next: false,
+    ///     content: Some(proto::main::Content::SystemPingRequest(
+    ///         proto::system::PingRequest {
+    ///             data: vec![0xDE, 0xAD, 0xBE, 0xEF],
+    ///         },
+    ///     )),
+    /// };
+    /// cli.send_rpc_proto(ping)?;
+    /// ```
+    pub fn send_rpc_proto(&mut self, mut rpc: proto::Main) -> Result<()> {
         rpc.command_id = self.command_id;
 
         let encoded = rpc.encode_length_delimited_to_vec();
-        let encoded = encoded.as_slice();
+        self.port.write_all(&encoded)?;
 
-        self.port.write_all(encoded)?;
-
-        self.command_id += 1;
+        self.command_id = self.command_id.wrapping_add(1);
 
         Ok(())
     }
 
+    /// Reads the next RPC message from the Flipper using a two-stage buffered read.
+    ///
+    /// Uses a two-shot method of reading: first to get varint length + partial data, then to
+    /// fetch remaining bytes if the message exceeds the initial buffer.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no data is received, decoding fails, or IO operations fail.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let response = cli.read_rpc_proto()?;
+    /// ```
     pub fn read_rpc_proto(&mut self) -> Result<proto::Main> {
         // INFO: Super-overcomplicated but fast and efficent way of reading any length varint + data in exactly two
         // syscalls
@@ -105,7 +209,7 @@ impl Cli {
         if read == 0 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
-                "Failed to read varint, no data read",
+                "no data read, failed to parse varint",
             )
             .into());
         }
@@ -180,6 +284,20 @@ impl Cli {
         Ok(main)
     }
 
+    /// Reads the next RPC message from the Flipper using a byte-wise varint decoder.
+    ///
+    /// This method issues up to 11 syscalls but and relies on only heap buffers.
+    /// Opt to use read_rpc_proto when possible
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if IO operations fail or decoding fails.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let response = cli.read_rpc_proto_bytewise()?;
+    /// ```
     pub fn read_rpc_proto_bytewise(&mut self) -> Result<proto::Main> {
         // NOTE: Comapred to the one above, this looks stupid and shitty. It makes a maximum of 11
         // syscalls, with a minimum of 2. 11 for large messages and 2 for messages < 127 bytes.
@@ -205,14 +323,33 @@ impl Cli {
         Ok(main)
     }
 
-    /// Command ID is ignored, it gets reset to the internal counter's value
+    /// Sends an RPC request and immediately reads the response.
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from `send_rpc_proto` or `read_rpc_proto`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let response = cli.send_read_rpc_proto(request)?;
+    /// ```
     pub fn send_read_rpc_proto(&mut self, rpc: proto::Main) -> Result<proto::Main> {
         self.send_rpc_proto(rpc)?;
         self.read_rpc_proto()
     }
 }
 
-/// Calculates the number of bytes required to encode a varint for the given value, without actually encoding it
+/// Returns the number of bytes used by the varint encoding of `value`.
+///
+/// This does not allocate or write the varint, only computes its length.
+///
+/// # Examples
+///
+/// ```
+/// let len = varint_length(300);
+/// assert_eq!(len, 2);
+/// ```
 fn varint_length(mut value: usize) -> usize {
     let mut len = 1;
     while value >= 0x80 {

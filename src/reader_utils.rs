@@ -42,20 +42,3 @@ pub fn drain_until<R: Read>(reader: &mut R, until_str: &str, timeout: Duration) 
 
     Err(Error::DrainTimeout(until_str.to_string()))
 }
-
-pub fn drain<R: Read>(reader: &mut R) -> Result<usize> {
-    let mut total: usize = 0;
-    let mut buf = [0u8; 1024];
-
-    loop {
-        match reader.read(&mut buf) {
-            Ok(0) => break,
-            Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => break,
-
-            Ok(n) => total += n,
-            Err(e) => return Err(e.into()),
-        }
-    }
-
-    Ok(total)
-}
