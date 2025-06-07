@@ -1,106 +1,155 @@
-# `flipper-rpc` - Serial RPC control for the flipper zero
+# `flipper-rpc` – Serial RPC Control for the Flipper Zero
 
-> Finally! A rust library to control a flipper zero through ProtoBuf RPC
-> commands!
+[![crates.io](https://img.shields.io/crates/v/flipper-rpc.svg)](https://crates.io/crates/flipper-rpc)
 
-`flipper-rpc` is a library for sending and receiving RPC messages to and from a
-flipper zero.
+> _Finally!_ A Rust library to control a Flipper Zero through ProtoBuf RPC
+> commands.
 
-## Features
+`flipper-rpc` is a Rust library for sending and receiving RPC messages to and
+from a Flipper Zero over a serial connection.
 
-- Automatic flipper detection
-- Full flipper-zero/protobuf support
-- Serial RPC
+---
 
-### Tentative
+## ✨ Features
 
-- Better user experience when using the API (initial planned version is in
-  `src/rpc.rs`, it is not imported or used)
-- Built-in file transfer code
+- 🔍 Automatic Flipper detection
+- 🧠 Full
+  [flipperzero-protobuf](https://github.com/flipperdevices/flipperzero-protobuf)
+  support
+- 🔌 Serial-based RPC interface
 
-### Planned
+### 🚧 Tentative
 
-- Bluetooth, maybe?
+- Ergonomic, user-friendly API (see early draft in [`src/rpc.rs`](src/rpc.rs))
+- Built-in file transfer support
 
-## Usage
+### 🧪 Planned
 
-## RPC Documentation
+- Bluetooth support (maybe 🤞)
 
-After god knows how long of searching for some damn documentation on this shitty
-API, and finding nothing. I decided to make my own!
+---
 
-### Connecting
+## 📦 Installation
 
-First, you need to make a serial connection. You can use any of your favorite
-libraries to do this, for this project I chose `serialport`. It's a very simple
-API and just requires the port of the device and a baud rate to connect.
+Run this command
 
-Speaking of baud rate, I don't think it matters. I have tested many different
-baud rates when connecting to the flipper, and nothing changes, it works each
-time. This could be because the serial connection is a `CDC-ACM`, which is a
-"fake" serial connection over USB.
+```sh
+cargo add flipper-rpc
+```
 
-After connecting, you have to "drain" the buffer until you reach the string
-`>:`, otherwise known as the shell prompt. You must do this as when you read, it
-starts from the start of the buffer, not where you last wrote. Draining is very
-simple, you just read a bunch of chunks and check if the string is inside the
-concatenation of them all. (source code is in src/reader\_utils.rs)
+Or add this to your `Cargo.toml`:
 
-Then, after draining you must start an RPC session.
+```toml
+[dependencies]
+flipper-rpc = "0.1.0"  # Replace with the latest version from crates.io
+```
 
-The serial connection starts in an ASCII-based text command line. To enter RPC,
-write the data: `start_rpc_session\r` (note: writing `\r\n` does not work for
-some reason)
+## 🚀 Usage
 
-Then you must drain until `\n` since the flipper will send `\n` when it has
-processed that command.
+```rust
+let cli = Cli::new("/dev/ttyACM0".to_string());
+// or use Cli::flipper_ports() to find the port dynamically
 
-Then, you can finally start sending RPC commands.
+let ping = proto::Main {
+    command_id: 0,
+    command_status: proto::CommandStatus::Ok.into(),
+    has_next: false,
+    content: Some(proto::main::Content::SystemPingRequest(
+        proto::system::PingRequest {
+            data: vec![0xDE, 0xAD, 0xBE, 0xEF],
+        },
+    )),
+};
 
-### Sending
+let response = cli.send_read_rpc_proto(ping)?;
 
-Sending a command is quite simple, you first encode the command you want to
-send, and then you send it (haha).
+println!("{response:?}");
+```
 
-The flipper expects all commands to be length-delimeted (fancy way of saying the
-first byte must be the length of the data after it):
+---
 
-The length is **NOT** a normal byte representing the length, it **MUST** be
-`Varint` encoded.
+## 📚 Flipper Zero RPC Protocol Documentation
 
-Example raw request data for sending a `PingRequest` with the data:
-`[1, 2, 3, 4]`:
+After far too much searching for usable documentation on this API (and finding
+_nothing_), I decided to write my own. Enjoy!
 
-`[8, 42, 6, 10, 4, 1, 2, 3, 4]`
+---
 
-The first byte is the length, in this example 8 encoded into Varint is just 8.
+### 🔌 Connecting
 
-### Receiving
+1. **Make a serial connection.** Use your preferred serial library. This crate
+   uses [`serialport`](https://docs.rs/serialport), which is simple and only
+   requires the port path and a baud rate.
 
-To read a response, you must first read the length of the response.
+2. **Baud rate? Doesn’t matter.** Serial over USB (`CDC-ACM`) abstracts this
+   away. It’ll work at basically any speed.
 
-The length is varint encoded, which has a maximum length of 10 bytes. The slow
-way to do this is to read byte by byte until the MSB (most significant bit) of a
-byte is `1`, varints end when the MSB is 1
+3. **Drain the buffer.** Keep reading until you see the shell prompt string
+   `>:`. This clears old buffer content, since reads begin from the buffer start
+   — not your last write.
 
-The fast way I developed is too long to explain here, but you can read the many
-comments about it in `src/cli.rs` in the `read_rpc_proto` function. In short, it
-uses exactly 2 syscalls and stack buffers instead of a max of 11 and heap
-buffers.
+4. **Enter RPC mode.** Send:
 
-After you read the varint, you then decode it. After decoding, you read N bytes
-and decode that with the protobuf decoder.
+   ```
+   start_rpc_session\r
+   ```
 
-And the byte response from the flipper for the previously mentioned ping request
-is:
+   > **Note:** `\r\n` does **not** work here.
 
-`[8, 50, 6, 10, 4, 1, 2, 3, 4]`
+5. **Drain again.** Read until you receive `\n`, which indicates that the
+   Flipper has accepted the command.
 
-## Why?
+---
 
-This project was made for another project I am making:
-[`flippy`](https://github.com/elijah629/flippy), a command line tool to update
-firmware and databases from remote sources on the flipper zero. Since there was
-no existing way to communicate with it, I split it's RPC code into this library.
+### 📤 Sending RPC Commands
 
-(shameless promo: please star :star: it, I would greatly appreciate it)
+1. **Encode the request using protobuf.**
+2. **Prefix the message with its length** (encoded as a **Varint**, not a
+   regular byte).
+
+> 🔢 Varint is a variable-length integer encoding. The Flipper expects this as
+> the first byte(s) of your message.
+
+#### Example: Sending `PingRequest` with `[1, 2, 3, 4]`
+
+Raw request bytes:
+
+```text
+[8, 42, 6, 10, 4, 1, 2, 3, 4]
+```
+
+- `8` is the Varint-encoded length of the rest of the message.
+
+---
+
+### 📥 Receiving RPC Responses
+
+1. **Read the length prefix** The length is a Varint and can be up to **10
+   bytes**.
+
+   - Slow way: Read byte-by-byte until the MSB is `1`.
+   - Fast way: See the optimized logic in [`src/cli.rs`](src/cli.rs),
+     `read_rpc_proto()`.
+
+2. **Read and decode** Once the length is known, read that many bytes, then
+   decode with your protobuf deserializer.
+
+#### Example response for the ping:
+
+```text
+[8, 50, 6, 10, 4, 1, 2, 3, 4]
+```
+
+---
+
+## 🤔 Why This Exists
+
+This crate was built to support another project I'm working on: 👉
+[`flippy`](https://github.com/elijah629/flippy) – a CLI tool for updating
+firmware and databases on the Flipper Zero from remote sources.
+
+Since there was no existing way to speak RPC to the Flipper in Rust, I split
+that functionality into this standalone library.
+
+> 💫 _Shameless plug:_ If you find this useful,
+> [give it a star](https://github.com/elijah629/flippy) ⭐ — I'd appreciate it!

@@ -6,6 +6,7 @@ description = "Flipper Zero Remote Procedure Call Library (RPC) – A Rust 🦀 
 repository = "https://github.com/elijah629/flipper-rpc"
 keywords = ["flipperzero", "rpc", "qflipper", "control", "flipper"]
 categories = ["encoding", "api-bindings", "development-tools"]
+readme = "README.md"
 license = "MIT"
 
 [dependencies]
