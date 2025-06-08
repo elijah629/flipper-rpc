@@ -10,9 +10,6 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] io::Error),
 
-    #[error("Timeout while waiting for string '{0}' in banner")]
-    DrainTimeout(String),
-
     #[error(transparent)]
     DecodeError(#[from] prost::DecodeError),
 }

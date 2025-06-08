@@ -19,15 +19,22 @@
 //!     }
 //! }
 //!
-//! // Connect to first device
-//! let mut cli = Cli::new("/dev/ttyUSB0".to_string())?;
+//! let port = &ports[0].0;
+//! let mut cli = Cli::new(port.to_string())?;
 //!
 //! // Send a ping RPC message
-//! let ping = proto::Main::default();
-//! cli.send_rpc_proto(ping)?;
+//! let ping =  let ping = proto::Main {
+//!     command_id: 0,
+//!     command_status: proto::CommandStatus::Ok.into(),
+//!     has_next: false,
+//!     content: Some(proto::main::Content::SystemPingRequest(
+//!         proto::system::PingRequest {
+//!             data: vec![0xDE, 0xAD, 0xBE, 0xEF],
+//!         },
+//!     )),
+//! };
 //!
-//! // Read response
-//! let response = cli.read_rpc_proto()?;
+//! let response = cli.send_read_rpc_proto(ping)?;
 //! println!("Received: {:?}", response);
 //! # Ok(())
 //! # }
@@ -35,6 +42,7 @@
 
 #![deny(missing_docs)]
 
+use log::{debug, trace};
 use prost::{Message, bytes::Buf};
 use serialport::SerialPort;
 use std::time::Duration;
@@ -68,17 +76,21 @@ impl Cli {
     /// }
     /// ```
     pub fn flipper_ports() -> Option<Vec<(String, String)>> {
+        debug!("Scanning for ports");
         serialport::available_ports().ok().map(|ports| {
             ports
                 .into_iter()
                 .filter_map(|port| {
+                    debug!("Found port: {:?}", port);
                     if let serialport::SerialPortType::UsbPort(usb_info) = port.port_type {
                         if usb_info.manufacturer.as_deref() == Some("Flipper Devices Inc.") {
                             if let Some(product) = usb_info.product {
+                                debug!("-- Port is a flipper");
                                 return Some((port.port_name, product));
                             }
                         }
                     }
+                    debug!("-- Port is not a flipper");
                     None
                 })
                 .collect()
@@ -104,13 +116,14 @@ impl Cli {
             .timeout(Duration::from_secs(2))
             .open()?;
 
-        // INFO: Drains port until tty prompt
+        debug!("Draining port until prompt");
         drain_until(&mut port, ">: ", Duration::from_secs(2))?;
 
+        debug!("Calling start_rpc_session");
         port.write_all("start_rpc_session\r".as_bytes())?;
         port.flush()?;
 
-        // INFO: Waits till start_rpc_session responds
+        debug!("Draining until start_rpc_session has a \\n");
         drain_until(&mut port, "\n", Duration::from_secs(2))?;
 
         Ok(Self {
@@ -144,9 +157,12 @@ impl Cli {
     /// cli.send_rpc_proto(ping)?;
     /// ```
     pub fn send_rpc_proto(&mut self, mut rpc: proto::Main) -> Result<()> {
+        trace!("send_rpc_proto");
         rpc.command_id = self.command_id;
 
+        debug!("Encoding RPC");
         let encoded = rpc.encode_length_delimited_to_vec();
+        debug!("Writing RPC");
         self.port.write_all(&encoded)?;
 
         self.command_id = self.command_id.wrapping_add(1);
@@ -169,6 +185,7 @@ impl Cli {
     /// let response = cli.read_rpc_proto()?;
     /// ```
     pub fn read_rpc_proto(&mut self) -> Result<proto::Main> {
+        trace!("read_rpc_proto");
         // INFO: Super-overcomplicated but fast and efficent way of reading any length varint + data in exactly two
         // syscalls
         // Tries to use a stack-based approach when possible and does it efficently
@@ -194,6 +211,7 @@ impl Cli {
         let mut read = 0;
         let mut available_bytes = buf.len();
 
+        debug!("Reading varint");
         while read < available_bytes {
             match self.port.read(&mut buf[read..available_bytes]) {
                 Ok(0) => break, // No more data
@@ -214,12 +232,14 @@ impl Cli {
             .into());
         }
 
+        debug!("Decoding data length");
         let total_data_length = prost::decode_length_delimiter(&buf[..read])?;
 
         // We have the length of the data, however some or all of the actual data is inside of buf,
         // after the varint, it just continues to RPC data.
 
         // How many bytes does the varint take up?
+        debug!("Calculating varint length");
         let varint_length = varint_length(total_data_length);
 
         // PERF: All the data that is not varint data, this is another main optimization,
@@ -240,6 +260,7 @@ impl Cli {
             // INFO: partial_data is all of the data in the buffer besides the varint and
             // trailing zeros if we read less than the buf's size
 
+            debug!("FASTEST: Decoding response");
             proto::Main::decode(partial_data)?
         } else {
             // WARN: Data did NOT fit inside of the buffer, this means that some of the data is
@@ -263,6 +284,7 @@ impl Cli {
             let remaining_length = total_data_length - partial_data.len();
 
             if remaining_length <= STACK_LIMIT {
+                debug!("FAST: Decoding response");
                 // Free speed for small messages!
                 let mut stack_buf = [0u8; STACK_LIMIT];
                 self.port.read_exact(&mut stack_buf[..remaining_length])?;
@@ -271,6 +293,7 @@ impl Cli {
 
                 proto::Main::decode(chained)?
             } else {
+                debug!("SLOW: Decoding response");
                 // Uses a slower heap (vec) based decoding for larger messages.
                 let mut remaining_data = vec![0u8; remaining_length];
                 self.port.read_exact(&mut remaining_data)?;

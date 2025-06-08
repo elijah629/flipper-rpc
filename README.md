@@ -12,6 +12,7 @@ from a Flipper Zero over a serial connection.
 
 ## ✨ Features
 
+- :log: Log compatible
 - 🔍 Automatic Flipper detection
 - 🧠 Full
   [flipperzero-protobuf](https://github.com/flipperdevices/flipperzero-protobuf)
@@ -47,7 +48,7 @@ flipper-rpc = "0.1.0"  # Replace with the latest version from crates.io
 ## 🚀 Usage
 
 ```rust
-let cli = Cli::new("/dev/ttyACM0".to_string());
+let mut cli = Cli::new("/dev/ttyACM0".to_string());
 // or use Cli::flipper_ports() to find the port dynamically
 
 let ping = proto::Main {
@@ -90,7 +91,7 @@ _nothing_), I decided to write my own. Enjoy!
 
 4. **Enter RPC mode.** Send:
 
-   ```
+   ```txt
    start_rpc_session\r
    ```
 
@@ -134,7 +135,7 @@ Raw request bytes:
 2. **Read and decode** Once the length is known, read that many bytes, then
    decode with your protobuf deserializer.
 
-#### Example response for the ping:
+#### Example response for the ping
 
 ```text
 [8, 50, 6, 10, 4, 1, 2, 3, 4]
