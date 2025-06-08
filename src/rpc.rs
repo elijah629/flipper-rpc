@@ -1,82 +1,327 @@
-/// This file aims to make a better experience for end users by mapping proto::* classes into
-/// a user friendly Rpc::* enum and have better documentation
+//! This file aims to make a better experience for end users by mapping proto::* classes into
+//! a user friendly Rpc{Request, Response}::* enum and have better documentation
 
-/// Requests, these are made by the end user and will all normally recieve an RpcResponse
-pub enum RpcRequest {
-    StopSession(super::StopSession),
-    SystemPingRequest(super::super::system::PingRequest),
-    SystemRebootRequest(super::super::system::RebootRequest),
-    SystemDeviceInfoRequest(super::super::system::DeviceInfoRequest),
-    SystemFactoryResetRequest(super::super::system::FactoryResetRequest),
-    SystemGetDatetimeRequest(super::super::system::GetDateTimeRequest),
-    SystemSetDatetimeRequest(super::super::system::SetDateTimeRequest),
-    SystemPlayAudiovisualAlertRequest(super::super::system::PlayAudiovisualAlertRequest),
-    SystemProtobufVersionRequest(super::super::system::ProtobufVersionRequest),
-    SystemUpdateRequest(super::super::system::UpdateRequest),
-    SystemPowerInfoRequest(super::super::system::PowerInfoRequest),
-    StorageInfoRequest(super::super::storage::InfoRequest),
-    StorageTimestampRequest(super::super::storage::TimestampRequest),
-    StorageStatRequest(super::super::storage::StatRequest),
-    StorageListRequest(super::super::storage::ListRequest),
-    StorageReadRequest(super::super::storage::ReadRequest),
-    StorageWriteRequest(super::super::storage::WriteRequest),
-    StorageDeleteRequest(super::super::storage::DeleteRequest),
-    StorageMkdirRequest(super::super::storage::MkdirRequest),
-    StorageMd5sumRequest(super::super::storage::Md5sumRequest),
-    StorageRenameRequest(super::super::storage::RenameRequest),
-    StorageBackupCreateRequest(super::super::storage::BackupCreateRequest),
-    StorageBackupRestoreRequest(super::super::storage::BackupRestoreRequest),
-    StorageTarExtractRequest(super::super::storage::TarExtractRequest),
-    AppStartRequest(super::super::app::StartRequest),
-    AppLockStatusRequest(super::super::app::LockStatusRequest),
-    AppExitRequest(super::super::app::AppExitRequest),
-    AppLoadFileRequest(super::super::app::AppLoadFileRequest),
-    AppButtonPressRequest(super::super::app::AppButtonPressRequest),
-    AppButtonReleaseRequest(super::super::app::AppButtonReleaseRequest),
-    AppButtonPressReleaseRequest(super::super::app::AppButtonPressReleaseRequest),
-    AppGetErrorRequest(super::super::app::GetErrorRequest),
-    AppDataExchangeRequest(super::super::app::DataExchangeRequest),
-    GuiStartScreenStreamRequest(super::super::gui::StartScreenStreamRequest),
-    GuiStopScreenStreamRequest(super::super::gui::StopScreenStreamRequest),
-    GuiSendInputEventRequest(super::super::gui::SendInputEventRequest),
-    GuiStartVirtualDisplayRequest(super::super::gui::StartVirtualDisplayRequest),
-    GuiStopVirtualDisplayRequest(super::super::gui::StopVirtualDisplayRequest),
-    GpioSetPinMode(super::super::gpio::SetPinMode),
-    GpioSetInputPull(super::super::gpio::SetInputPull),
-    GpioGetPinMode(super::super::gpio::GetPinMode),
-    GpioReadPin(super::super::gpio::ReadPin),
-    GpioWritePin(super::super::gpio::WritePin),
-    GpioGetOtgMode(super::super::gpio::GetOtgMode),
-    GpioSetOtgMode(super::super::gpio::SetOtgMode),
-    PropertyGetRequest(super::super::property::GetRequest),
-    DesktopIsLockedRequest(super::super::desktop::IsLockedRequest),
-    DesktopUnlockRequest(super::super::desktop::UnlockRequest),
-    DesktopStatusSubscribeRequest(super::super::desktop::StatusSubscribeRequest),
-    DesktopStatusUnsubscribeRequest(super::super::desktop::StatusUnsubscribeRequest),
+use paste::paste;
+
+use crate::proto::StopSession;
+use crate::proto::app::{AppStateResponse, GetErrorResponse, LockStatusResponse};
+use crate::proto::desktop::{
+    IsLockedRequest, Status, StatusSubscribeRequest, StatusUnsubscribeRequest, UnlockRequest,
+};
+use crate::proto::gpio::{
+    GetOtgMode, GetOtgModeResponse, GetPinMode, GetPinModeResponse, ReadPin, ReadPinResponse,
+    SetInputPull, SetOtgMode, SetPinMode, WritePin,
+};
+use crate::proto::gui::{
+    ScreenFrame, SendInputEventRequest, StartScreenStreamRequest, StartVirtualDisplayRequest,
+    StopScreenStreamRequest, StopVirtualDisplayRequest,
+};
+use crate::proto::property::{GetRequest, GetResponse};
+use crate::proto::storage::{
+    InfoResponse, ListResponse, Md5sumResponse, ReadResponse, StatResponse, TimestampResponse,
+};
+use crate::proto::system::{
+    DeviceInfoRequest, DeviceInfoResponse, FactoryResetRequest, GetDateTimeResponse, PingRequest,
+    PowerInfoResponse, ProtobufVersionResponse, RebootRequest, SetDateTimeRequest, UpdateResponse,
+};
+use crate::proto::{
+    self, CommandStatus,
+    app::{
+        AppButtonPressReleaseRequest, AppButtonPressRequest, AppButtonReleaseRequest,
+        AppExitRequest, AppLoadFileRequest, DataExchangeRequest, GetErrorRequest,
+        LockStatusRequest, StartRequest,
+    },
+    storage::{
+        BackupCreateRequest, BackupRestoreRequest, DeleteRequest, InfoRequest, ListRequest,
+        Md5sumRequest, MkdirRequest, ReadRequest, RenameRequest, StatRequest, TarExtractRequest,
+        TimestampRequest, WriteRequest,
+    },
+    system::{DateTime, UpdateRequest, reboot_request::RebootMode},
+};
+
+// Generated by ChatGPT idk how to do macros
+macro_rules! define_into_impl {
+    ($enum_name:ident $variant:ident $typ:ty) => {
+        paste! {
+            impl $enum_name {
+               #[doc = stringify!(Reads the internal $typ data from a $enum_name::$variant)]
+               #[doc = r" Panics if the variant is not the same as the data type requested"]
+               pub fn [<into_ $variant:lower>](self) -> $typ {
+                    match self {
+                        $enum_name::$variant(x) => x,
+                        _ => panic!(concat!(
+                            "called `into_",
+                            stringify!($variant),
+                            "` on a non-",
+                            stringify!($variant),
+                            " value"
+                        )),
+                    }
+                }
+            }
+        }
+    };
+    ($enum_name:ident $variant:ident) => {};
 }
 
-/// Reponse from flipper
+macro_rules! define_into_enum {
+     (
+        $(#[$enum_meta:meta])*
+        $vis:vis enum $enum_name:ident {
+            $(
+                $(#[$variant_meta:meta])*
+                $variant:ident $( ( $typ:ty ) )?
+            ),* $(,)?
+        }
+    ) => {
+        $(#[$enum_meta])*
+        $vis enum $enum_name {
+            $(
+                $(#[$variant_meta])*
+                #[doc = stringify!($enum_name::$variant)]
+                $variant $( ( $typ ) )?,
+            )*
+        }
+
+        $(
+            define_into_impl!($enum_name $variant $( $typ)?);
+        )*
+    };
+}
+
+// bootleg proc-macros but i dont wanna make any
+define_into_enum! {
+    /// Wrapper around proto::Main tailored for requests. Can be turned into a proto::Main by
+    /// RcpRequest::into_rpc(self)
+#[derive(Debug)]
+pub enum RpcRequest {
+    StopSession,
+    Ping(Vec<u8>),
+    Reboot(RebootMode),
+    SystemDeviceInfo,
+    SystemFactoryReset,
+    SystemGetDatetime,
+    SystemSetDatetime(DateTime),
+    SystemPlayAudiovisualAlert,
+    SystemProtobufVersion,
+    SystemUpdate(UpdateRequest),
+    SystemPowerInfo,
+    StorageInfo(InfoRequest),
+    StorageTimestamp(TimestampRequest),
+    StorageStat(StatRequest),
+    StorageList(ListRequest),
+    StorageRead(ReadRequest),
+    StorageWrite(WriteRequest),
+    StorageDelete(DeleteRequest),
+    StorageMkdir(MkdirRequest),
+    StorageMd5sumRequest(Md5sumRequest),
+    StorageRenameRequest(RenameRequest),
+    StorageBackupCreateRequest(BackupCreateRequest),
+    StorageBackupRestoreRequest(BackupRestoreRequest),
+    StorageTarExtractRequest(TarExtractRequest),
+    AppStartRequest(StartRequest),
+    AppLockStatusRequest(LockStatusRequest),
+    AppExitRequest(AppExitRequest),
+    AppLoadFileRequest(AppLoadFileRequest),
+    AppButtonPressRequest(AppButtonPressRequest),
+    AppButtonReleaseRequest(AppButtonReleaseRequest),
+    AppButtonPressReleaseRequest(AppButtonPressReleaseRequest),
+    AppGetErrorRequest(GetErrorRequest),
+    AppDataExchangeRequest(DataExchangeRequest),
+    GuiStartScreenStreamRequest(StartScreenStreamRequest),
+    GuiStopScreenStreamRequest(StopScreenStreamRequest),
+    GuiSendInputEventRequest(SendInputEventRequest),
+    GuiStartVirtualDisplayRequest(StartVirtualDisplayRequest),
+    GuiStopVirtualDisplayRequest(StopVirtualDisplayRequest),
+    GpioSetPinMode(SetPinMode),
+    GpioSetInputPull(SetInputPull),
+    GpioGetPinMode(GetPinMode),
+    GpioReadPin(ReadPin),
+    GpioWritePin(WritePin),
+    GpioGetOtgMode(GetOtgMode),
+    GpioSetOtgMode(SetOtgMode),
+    PropertyGetRequest(GetRequest),
+    DesktopIsLockedRequest(IsLockedRequest),
+    DesktopUnlockRequest(UnlockRequest),
+    DesktopStatusSubscribeRequest(StatusSubscribeRequest),
+    DesktopStatusUnsubscribeRequest(StatusUnsubscribeRequest),
+}
+}
+
+define_into_enum! {
+    /// Wrapper around proto::Main tailored for responses. Can be made from a proto::Main by
+    /// Into/From
+#[derive(Debug)]
 pub enum RpcResponse {
     Empty,
-    SystemPingResponse(super::super::system::PingResponse),
-    SystemDeviceInfoResponse(super::super::system::DeviceInfoResponse),
-    SystemGetDatetimeResponse(super::super::system::GetDateTimeResponse),
-    SystemProtobufVersionResponse(super::super::system::ProtobufVersionResponse),
-    SystemUpdateResponse(super::super::system::UpdateResponse),
-    SystemPowerInfoResponse(super::super::system::PowerInfoResponse),
-    StorageInfoResponse(super::super::storage::InfoResponse),
-    StorageTimestampResponse(super::super::storage::TimestampResponse),
-    StorageStatResponse(super::super::storage::StatResponse),
-    StorageListResponse(super::super::storage::ListResponse),
-    StorageReadResponse(super::super::storage::ReadResponse),
-    StorageMd5sumResponse(super::super::storage::Md5sumResponse),
-    AppLockStatusResponse(super::super::app::LockStatusResponse),
-    AppGetErrorResponse(super::super::app::GetErrorResponse),
-    GuiScreenFrame(super::super::gui::ScreenFrame),
-    GpioGetPinModeResponse(super::super::gpio::GetPinModeResponse),
-    GpioReadPinResponse(super::super::gpio::ReadPinResponse),
-    GpioGetOtgModeResponse(super::super::gpio::GetOtgModeResponse),
-    AppStateResponse(super::super::app::AppStateResponse),
-    PropertyGetResponse(super::super::property::GetResponse),
-    DesktopStatus(super::super::desktop::Status),
+    Ping(Vec<u8>),
+    SystemDeviceInfoResponse(DeviceInfoResponse),
+    SystemGetDatetimeResponse(GetDateTimeResponse),
+    SystemProtobufVersionResponse(ProtobufVersionResponse),
+    SystemUpdateResponse(UpdateResponse),
+    SystemPowerInfoResponse(PowerInfoResponse),
+    StorageInfoResponse(InfoResponse),
+    StorageTimestampResponse(TimestampResponse),
+    StorageStatResponse(StatResponse),
+    StorageListResponse(ListResponse),
+    StorageReadResponse(ReadResponse),
+    StorageMd5sumResponse(Md5sumResponse),
+    AppLockStatusResponse(LockStatusResponse),
+    AppGetErrorResponse(GetErrorResponse),
+    GuiScreenFrame(ScreenFrame),
+    GpioGetPinModeResponse(GetPinModeResponse),
+    GpioReadPinResponse(ReadPinResponse),
+    GpioGetOtgModeResponse(GetOtgModeResponse),
+    AppStateResponse(AppStateResponse),
+    PropertyGetResponse(GetResponse),
+    DesktopStatus(Status),
+}
+}
+
+impl RpcRequest {
+    /// Creates a proto::Main from an RpcRequest
+    ///
+    /// Useful for actually sending the requests, as this is what the API expects. Does not error.
+    pub fn into_rpc(self, command_id: u32, has_next: bool) -> proto::Main {
+        use proto::main::Content;
+
+        proto::Main {
+            command_id,
+            command_status: CommandStatus::Ok.into(),
+            has_next,
+
+            // TODO: Implement user-friendly methods for all of these
+            content: Some(match self {
+                RpcRequest::StopSession => Content::StopSession(StopSession {}),
+                RpcRequest::Ping(data) => Content::SystemPingRequest(PingRequest { data }),
+                RpcRequest::Reboot(reboot_mode) => Content::SystemRebootRequest(RebootRequest {
+                    mode: reboot_mode.into(),
+                }),
+
+                RpcRequest::SystemDeviceInfo => {
+                    Content::SystemDeviceInfoRequest(DeviceInfoRequest {})
+                }
+                RpcRequest::SystemFactoryReset => {
+                    Content::SystemFactoryResetRequest(FactoryResetRequest {})
+                }
+                RpcRequest::SystemGetDatetime => {
+                    Content::SystemGetDatetimeRequest(crate::proto::system::GetDateTimeRequest {})
+                } // ← import GetDateTimeRequest
+                RpcRequest::SystemSetDatetime(date_time) => {
+                    Content::SystemSetDatetimeRequest(SetDateTimeRequest {
+                        datetime: Some(date_time),
+                    })
+                }
+                RpcRequest::SystemPlayAudiovisualAlert => {
+                    Content::SystemPlayAudiovisualAlertRequest(
+                        crate::proto::system::PlayAudiovisualAlertRequest {},
+                    )
+                }
+                RpcRequest::SystemProtobufVersion => Content::SystemProtobufVersionRequest(
+                    crate::proto::system::ProtobufVersionRequest {},
+                ),
+                RpcRequest::SystemUpdate(update_req) => {
+                    Content::SystemUpdateRequest(UpdateRequest { ..update_req })
+                }
+                RpcRequest::SystemPowerInfo => {
+                    Content::SystemPowerInfoRequest(crate::proto::system::PowerInfoRequest {})
+                }
+                RpcRequest::StorageInfo(req) => Content::StorageInfoRequest(req),
+                RpcRequest::StorageTimestamp(req) => Content::StorageTimestampRequest(req),
+                RpcRequest::StorageStat(req) => Content::StorageStatRequest(req),
+                RpcRequest::StorageList(req) => Content::StorageListRequest(req),
+                RpcRequest::StorageRead(req) => Content::StorageReadRequest(req),
+                RpcRequest::StorageWrite(req) => Content::StorageWriteRequest(req),
+                RpcRequest::StorageDelete(req) => Content::StorageDeleteRequest(req),
+                RpcRequest::StorageMkdir(req) => Content::StorageMkdirRequest(req),
+                RpcRequest::StorageMd5sumRequest(req) => Content::StorageMd5sumRequest(req),
+                RpcRequest::StorageRenameRequest(req) => Content::StorageRenameRequest(req),
+                RpcRequest::StorageBackupCreateRequest(req) => {
+                    Content::StorageBackupCreateRequest(req)
+                }
+                RpcRequest::StorageBackupRestoreRequest(req) => {
+                    Content::StorageBackupRestoreRequest(req)
+                }
+                RpcRequest::StorageTarExtractRequest(req) => Content::StorageTarExtractRequest(req),
+
+                RpcRequest::AppStartRequest(req) => Content::AppStartRequest(req),
+                RpcRequest::AppLockStatusRequest(req) => Content::AppLockStatusRequest(req),
+                RpcRequest::AppExitRequest(req) => Content::AppExitRequest(req),
+                RpcRequest::AppLoadFileRequest(req) => Content::AppLoadFileRequest(req),
+                RpcRequest::AppButtonPressRequest(req) => Content::AppButtonPressRequest(req),
+                RpcRequest::AppButtonReleaseRequest(req) => Content::AppButtonReleaseRequest(req),
+                RpcRequest::AppButtonPressReleaseRequest(req) => {
+                    Content::AppButtonPressReleaseRequest(req)
+                }
+                RpcRequest::AppDataExchangeRequest(req) => Content::AppDataExchangeRequest(req),
+                RpcRequest::AppGetErrorRequest(req) => Content::AppGetErrorRequest(req),
+
+                RpcRequest::GuiStartScreenStreamRequest(req) => {
+                    Content::GuiStartScreenStreamRequest(req)
+                }
+                RpcRequest::GuiStopScreenStreamRequest(req) => {
+                    Content::GuiStopScreenStreamRequest(req)
+                }
+                RpcRequest::GuiSendInputEventRequest(req) => Content::GuiSendInputEventRequest(req),
+                RpcRequest::GuiStartVirtualDisplayRequest(req) => {
+                    Content::GuiStartVirtualDisplayRequest(req)
+                }
+                RpcRequest::GuiStopVirtualDisplayRequest(req) => {
+                    Content::GuiStopVirtualDisplayRequest(req)
+                }
+
+                RpcRequest::GpioSetPinMode(req) => Content::GpioSetPinMode(req),
+                RpcRequest::GpioSetInputPull(req) => Content::GpioSetInputPull(req),
+                RpcRequest::GpioGetPinMode(req) => Content::GpioGetPinMode(req),
+                RpcRequest::GpioReadPin(req) => Content::GpioReadPin(req),
+                RpcRequest::GpioWritePin(req) => Content::GpioWritePin(req),
+                RpcRequest::GpioGetOtgMode(req) => Content::GpioGetOtgMode(req),
+                RpcRequest::GpioSetOtgMode(req) => Content::GpioSetOtgMode(req),
+
+                RpcRequest::PropertyGetRequest(req) => Content::PropertyGetRequest(req),
+                RpcRequest::DesktopIsLockedRequest(req) => Content::DesktopIsLockedRequest(req),
+                RpcRequest::DesktopUnlockRequest(req) => Content::DesktopUnlockRequest(req),
+                RpcRequest::DesktopStatusSubscribeRequest(req) => {
+                    Content::DesktopStatusSubscribeRequest(req)
+                }
+                RpcRequest::DesktopStatusUnsubscribeRequest(req) => {
+                    Content::DesktopStatusUnsubscribeRequest(req)
+                }
+            }),
+        }
+    }
+}
+
+impl From<proto::Main> for RpcResponse {
+    fn from(val: proto::Main) -> Self {
+        use proto::main::Content::*;
+        let content = val.content.unwrap();
+
+        match content {
+            Empty(_) => RpcResponse::Empty,
+            SystemPingResponse(r) => RpcResponse::Ping(r.data),
+            SystemDeviceInfoResponse(r) => RpcResponse::SystemDeviceInfoResponse(r),
+            SystemGetDatetimeResponse(r) => RpcResponse::SystemGetDatetimeResponse(r),
+            SystemProtobufVersionResponse(r) => RpcResponse::SystemProtobufVersionResponse(r),
+            SystemUpdateResponse(r) => RpcResponse::SystemUpdateResponse(r),
+            SystemPowerInfoResponse(r) => RpcResponse::SystemPowerInfoResponse(r),
+            StorageInfoResponse(r) => RpcResponse::StorageInfoResponse(r),
+            StorageTimestampResponse(r) => RpcResponse::StorageTimestampResponse(r),
+            StorageStatResponse(r) => RpcResponse::StorageStatResponse(r),
+            StorageListResponse(r) => RpcResponse::StorageListResponse(r),
+            StorageReadResponse(r) => RpcResponse::StorageReadResponse(r),
+            StorageMd5sumResponse(r) => RpcResponse::StorageMd5sumResponse(r),
+            AppLockStatusResponse(r) => RpcResponse::AppLockStatusResponse(r),
+            AppGetErrorResponse(r) => RpcResponse::AppGetErrorResponse(r),
+            GuiScreenFrame(r) => RpcResponse::GuiScreenFrame(r),
+            GpioGetPinModeResponse(r) => RpcResponse::GpioGetPinModeResponse(r),
+            GpioReadPinResponse(r) => RpcResponse::GpioReadPinResponse(r),
+            GpioGetOtgModeResponse(r) => RpcResponse::GpioGetOtgModeResponse(r),
+            AppStateResponse(r) => RpcResponse::AppStateResponse(r),
+            PropertyGetResponse(r) => RpcResponse::PropertyGetResponse(r),
+            DesktopStatus(r) => RpcResponse::DesktopStatus(r),
+
+            _ => panic!("Cannot convert {:?} into RpcResponse", content),
+        }
+    }
 }

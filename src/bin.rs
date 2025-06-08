@@ -1,27 +1,23 @@
+use std::io;
+
 use flipper_rpc::{
-    cli::{self, Cli},
-    proto,
+    rpc::RpcRequest,
+    transport::{
+        Transport,
+        serial::{list_flipper_ports, rpc::SerialRpcTransport},
+    },
 };
 
-fn main() {
-    let ports = Cli::flipper_ports().unwrap();
+fn main() -> std::io::Result<()> {
+    let ports = list_flipper_ports()?;
 
-    let port = &ports[0].0;
+    let port = &ports[0].port_name;
 
-    let mut cli = Cli::new(port.to_string()).unwrap();
+    let mut cli = SerialRpcTransport::new(port.to_string())?;
 
-    let ping = proto::Main {
-        command_id: 0,
-        command_status: proto::CommandStatus::Ok.into(),
-        has_next: false,
-        content: Some(proto::main::Content::SystemPingRequest(
-            proto::system::PingRequest {
-                data: vec![0xDE, 0xAD, 0xBE, 0xEF],
-            },
-        )),
-    };
+    let response = cli.send_and_receive(RpcRequest::SystemPlayAudiovisualAlert)?;
 
-    let response = cli.send_read_rpc_proto(ping).unwrap();
+    assert!(response.is_none());
 
-    println!("{response:?}");
+    Ok(())
 }

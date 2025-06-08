@@ -1,103 +1,55 @@
-//! # Flipper CLI
+//! A transport that sends RPC messages on a port
 //!
-//! A client for communicating with Flipper Zero devices over a serial port using Protobuf RPC.
-//!
-//! This crate provides a `Cli` struct which manages an RPC session, sending and receiving messages
-//! defined in the `proto` module.
-//!
-//! ## Examples
+//! # Examples
 //!
 //! ```no_run
-//! use flipper_cli::Cli;
-//! use flipper_cli::error::Result;
+//! # fn main() -> std::io::Result<()> {
+//! let mut cli = SerialRpcTransport::new("/dev/ttyACM0".to_string())?;
 //!
-//! # fn main() -> Result<()> {
-//! // List available Flipper devices
-//! if let Some(ports) = Cli::flipper_ports() {
-//!     for (port_name, product) in ports {
-//!         println!("Found {} on {}", product, port_name);
-//!     }
-//! }
+//! let resp = cli.send_and_recieve(RpcRequest::Ping(vec![1, 2, 3, 4]))?; // or send_raw for raw proto messages!
 //!
-//! let port = &ports[0].0;
-//! let mut cli = Cli::new(port.to_string())?;
-//!
-//! // Send a ping RPC message
-//! let ping =  let ping = proto::Main {
-//!     command_id: 0,
-//!     command_status: proto::CommandStatus::Ok.into(),
-//!     has_next: false,
-//!     content: Some(proto::main::Content::SystemPingRequest(
-//!         proto::system::PingRequest {
-//!             data: vec![0xDE, 0xAD, 0xBE, 0xEF],
-//!         },
-//!     )),
-//! };
-//!
-//! let response = cli.send_read_rpc_proto(ping)?;
-//! println!("Received: {:?}", response);
+//! asserteq!(resp, RpcResponse::Ping(vec![1, 2, 3, 4]));
 //! # Ok(())
 //! # }
 //! ```
-
-#![deny(missing_docs)]
-
+use crate::{
+    proto,
+    rpc::{RpcRequest, RpcResponse},
+    transport::{
+        Transport, TransportRaw,
+        serial::{
+            FLIPPER_BAUD,
+            helpers::{drain_until, drain_until_str, varint_length},
+        },
+    },
+};
 use log::{debug, trace};
-use prost::{Message, bytes::Buf};
+use prost::Message;
 use serialport::SerialPort;
-use std::time::Duration;
+use std::{io, time::Duration};
 
-use crate::{error::Result, proto, reader_utils::drain_until};
-
-const FLIPPER_BAUD: u32 = 115_200;
-
-/// Flipper RPC communication class
+/// A transport that sends RPC messages on a port
+///
+/// # Examples
+///
+/// ```no_run
+/// # fn main() -> std::io::Result<()> {
+/// let mut cli = SerialRpcTransport::new("/dev/ttyACM0".to_string())?;
+///
+/// let resp = cli.send_and_recieve(RpcRequest::Ping(vec![1, 2, 3, 4]))?; // or send_raw for raw proto messages!
+///
+/// asserteq!(resp, RpcResponse::Ping(vec![1, 2, 3, 4]));
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug)]
-pub struct Cli {
-    command_id: u32,
+pub struct SerialRpcTransport {
+    command_index: u32,
     port: Box<dyn SerialPort>,
 }
 
-impl Cli {
-    /// Lists all connected Flipper devices by USB serial port and product name.
-    ///
-    /// # Returns
-    ///
-    /// - `Some(Vec<(port_name, product_name)>)` if querying ports succeeds.
-    /// - `None` if listing ports fails, or no ports are available.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// if let Some(devices) = Cli::flipper_ports() {
-    ///     for (port, name) in devices {
-    ///         println!("{}: {}", port, name);
-    ///     }
-    /// }
-    /// ```
-    pub fn flipper_ports() -> Option<Vec<(String, String)>> {
-        debug!("Scanning for ports");
-        serialport::available_ports().ok().map(|ports| {
-            ports
-                .into_iter()
-                .filter_map(|port| {
-                    debug!("Found port: {:?}", port);
-                    if let serialport::SerialPortType::UsbPort(usb_info) = port.port_type {
-                        if usb_info.manufacturer.as_deref() == Some("Flipper Devices Inc.") {
-                            if let Some(product) = usb_info.product {
-                                debug!("-- Port is a flipper");
-                                return Some((port.port_name, product));
-                            }
-                        }
-                    }
-                    debug!("-- Port is not a flipper");
-                    None
-                })
-                .collect()
-        })
-    }
-
-    /// Opens a new CLI session on the given serial port path.
+impl SerialRpcTransport {
+    /// Opens a new RPC session on the given serial port path.
     ///
     /// Initialize the serial connection and start an RPC session.
     ///
@@ -109,28 +61,46 @@ impl Cli {
     /// # Examples
     ///
     /// ```no_run
-    /// let mut cli = Cli::new("/dev/ttyACM0".to_string())?;
+    /// # fn main() -> std::io::Result<()> {
+    /// let mut cli = SerialRpcTransport::new("/dev/ttyACM0".to_string())?;
+    /// # Ok(())
+    /// # }
     /// ```
-    pub fn new(port: String) -> Result<Self> {
+    pub fn new(port: String) -> Result<Self, io::Error> {
         let mut port = serialport::new(port, FLIPPER_BAUD)
             .timeout(Duration::from_secs(2))
             .open()?;
 
         debug!("Draining port until prompt");
-        drain_until(&mut port, ">: ", Duration::from_secs(2))?;
+        drain_until_str(&mut port, ">: ", Duration::from_secs(2))?;
 
         debug!("Calling start_rpc_session");
         port.write_all("start_rpc_session\r".as_bytes())?;
         port.flush()?;
 
         debug!("Draining until start_rpc_session has a \\n");
-        drain_until(&mut port, "\n", Duration::from_secs(2))?;
+        drain_until(&mut port, b'\n', Duration::from_secs(2))?;
 
         Ok(Self {
+            command_index: 0,
             port,
-            command_id: 0,
         })
     }
+
+    /// Wraps a SerialPort with a SerialRpcTransport
+    /// WARN: Does not reconfigure the port, just passes it into the internal holder, you must make
+    /// sure that the port is in an RPC session. To convert a SerialCliTransport into
+    /// a SerialRpcTransport, use SerialCliTransport::into_rpc(self) instead.
+    pub fn from_port(port: Box<dyn SerialPort>) -> Result<Self, io::Error> {
+        Ok(Self {
+            command_index: 0,
+            port,
+        })
+    }
+}
+
+impl TransportRaw<proto::Main> for SerialRpcTransport {
+    type Err = io::Error;
 
     /// Sends a length-delimited Protobuf RPC message to the Flipper.
     ///
@@ -144,6 +114,11 @@ impl Cli {
     /// # Examples
     ///
     /// ```no_run
+    ///
+    /// # fn main() -> std::io::Result<()> {
+    ///
+    /// let cli = SerialRpcTransport::new("/dev/ttyACM0".to_string())?;
+    ///
     /// let ping = proto::Main {
     /// command_id: 0,
     ///     command_status: proto::CommandStatus::Ok.into(),
@@ -154,23 +129,28 @@ impl Cli {
     ///         },
     ///     )),
     /// };
-    /// cli.send_rpc_proto(ping)?;
+    /// cli.send_raw(ping)?;
+    ///
+    /// # Ok(())
+    /// # }
     /// ```
-    pub fn send_rpc_proto(&mut self, mut rpc: proto::Main) -> Result<()> {
+    fn send_raw(&mut self, value: proto::Main) -> Result<(), Self::Err> {
         trace!("send_rpc_proto");
-        rpc.command_id = self.command_id;
 
         debug!("Encoding RPC");
-        let encoded = rpc.encode_length_delimited_to_vec();
+        let encoded = value.encode_length_delimited_to_vec();
         debug!("Writing RPC");
         self.port.write_all(&encoded)?;
 
-        self.command_id = self.command_id.wrapping_add(1);
+        self.port.flush()?;
 
+        self.command_index = self.command_index.wrapping_add(1);
         Ok(())
     }
 
-    /// Reads the next RPC message from the Flipper using a two-stage buffered read.
+    /// Reads a length-delimited Protobuf RPC message from the flipper. This must be called
+    /// directly after data is sent, and cannot be called after a message is sent before (will
+    /// panic)
     ///
     /// Uses a two-shot method of reading: first to get varint length + partial data, then to
     /// fetch remaining bytes if the message exceeds the initial buffer.
@@ -182,10 +162,15 @@ impl Cli {
     /// # Examples
     ///
     /// ```no_run
-    /// let response = cli.read_rpc_proto()?;
+    /// let response = cli.recieve_raw()?;
     /// ```
-    pub fn read_rpc_proto(&mut self) -> Result<proto::Main> {
+    #[cfg(feature = "optimized-proto-reading")]
+    fn receive_raw(&mut self) -> Result<proto::Main, Self::Err> {
+        use prost::bytes::Buf;
+
         trace!("read_rpc_proto");
+
+        trace!("optimized-2shot-read");
         // INFO: Super-overcomplicated but fast and efficent way of reading any length varint + data in exactly two
         // syscalls
         // Tries to use a stack-based approach when possible and does it efficently
@@ -220,7 +205,7 @@ impl Cli {
                     read += n
                 }
                 Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => break,
-                Err(e) => return Err(e.into()),
+                Err(e) => return Err(e),
             }
         }
 
@@ -228,8 +213,7 @@ impl Cli {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "no data read, failed to parse varint",
-            )
-            .into());
+            ));
         }
 
         debug!("Decoding data length");
@@ -298,33 +282,32 @@ impl Cli {
                 let mut remaining_data = vec![0u8; remaining_length];
                 self.port.read_exact(&mut remaining_data)?;
 
-                let data = [partial_data.to_vec(), remaining_data].concat();
+                let chained = partial_data.chain(remaining_data.as_slice());
 
-                proto::Main::decode(data.as_slice())?
+                proto::Main::decode(chained)?
             }
         };
 
         Ok(main)
     }
 
+    /// Reads a length-delimited Protobuf RPC message from the flipper. This must be called
+    /// directly after data is sent, and cannot be called after a message is sent before (will
+    /// panic)
+    ///
     /// Reads the next RPC message from the Flipper using a byte-wise varint decoder.
     ///
     /// This method issues up to 11 syscalls but and relies on only heap buffers.
     /// Opt to use read_rpc_proto when possible
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if IO operations fail or decoding fails.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// let response = cli.read_rpc_proto_bytewise()?;
-    /// ```
-    pub fn read_rpc_proto_bytewise(&mut self) -> Result<proto::Main> {
+    /// NOTE: Optimized method disabled
+    #[cfg(not(feature = "optimized-proto-reading"))]
+    fn receive_raw(&mut self) -> Result<proto::Main, Self::Err> {
+        trace!("bytewise-read");
         // NOTE: Comapred to the one above, this looks stupid and shitty. It makes a maximum of 11
         // syscalls, with a minimum of 2. 11 for large messages and 2 for messages < 127 bytes.
         // It also only relies on the heap
+        //
+        // Useful for less-complex things but otherwise use the other version
 
         let mut buf = Vec::with_capacity(10);
         let mut byte = [0u8; 1];
@@ -345,39 +328,32 @@ impl Cli {
 
         Ok(main)
     }
-
-    /// Sends an RPC request and immediately reads the response.
-    ///
-    /// # Errors
-    ///
-    /// Propagates errors from `send_rpc_proto` or `read_rpc_proto`.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// let response = cli.send_read_rpc_proto(request)?;
-    /// ```
-    pub fn send_read_rpc_proto(&mut self, rpc: proto::Main) -> Result<proto::Main> {
-        self.send_rpc_proto(rpc)?;
-        self.read_rpc_proto()
-    }
 }
 
-/// Returns the number of bytes used by the varint encoding of `value`.
-///
-/// This does not allocate or write the varint, only computes its length.
-///
-/// # Examples
-///
-/// ```
-/// let len = varint_length(300);
-/// assert_eq!(len, 2);
-/// ```
-fn varint_length(mut value: usize) -> usize {
-    let mut len = 1;
-    while value >= 0x80 {
-        value >>= 7;
-        len += 1;
+impl Transport<RpcRequest, Option<RpcResponse>> for SerialRpcTransport {
+    type Err = io::Error;
+
+    fn send(&mut self, req: RpcRequest) -> Result<(), Self::Err> {
+        let proto = req.into_rpc(self.command_index, false);
+
+        self.send_raw(proto)?;
+
+        self.command_index = self.command_index.wrapping_add(1);
+
+        Ok(())
     }
-    len
+
+    /// Recieves a RPC reponse. Returns None if the response is Empty
+    fn receive(&mut self) -> Result<Option<RpcResponse>, Self::Err> {
+        let response = self.receive_raw()?;
+
+        let rpc = response.into();
+
+        let rpc = match rpc {
+            RpcResponse::Empty => None,
+            _ => Some(rpc),
+        };
+
+        Ok(rpc)
+    }
 }

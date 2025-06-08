@@ -48,23 +48,14 @@ flipper-rpc = "0.1.0"  # Replace with the latest version from crates.io
 ## 🚀 Usage
 
 ```rust
-let mut cli = Cli::new("/dev/ttyACM0".to_string());
-// or use Cli::flipper_ports() to find the port dynamically
+let ports = list_flipper_ports()?;
+let port = &ports[0].port_name;
 
-let ping = proto::Main {
-    command_id: 0,
-    command_status: proto::CommandStatus::Ok.into(),
-    has_next: false,
-    content: Some(proto::main::Content::SystemPingRequest(
-        proto::system::PingRequest {
-            data: vec![0xDE, 0xAD, 0xBE, 0xEF],
-        },
-    )),
-};
+let mut cli = SerialRpcTransport::new(port.to_string())?;
 
-let response = cli.send_read_rpc_proto(ping)?;
+let response = cli.send_and_receive(RpcRequest::SystemPlayAudiovisualAlert)?;
 
-println!("{response:?}");
+assert!(response.is_none());
 ```
 
 ---
@@ -82,20 +73,16 @@ _nothing_), I decided to write my own. Enjoy!
    uses [`serialport`](https://docs.rs/serialport), which is simple and only
    requires the port path and a baud rate.
 
-2. **Baud rate? Doesn’t matter.** Serial over USB (`CDC-ACM`) abstracts this
-   away. It’ll work at basically any speed.
+2. **Baud rate... Apparently doesn't matter** Serial over USB (`CDC-ACM`)
+   abstracts baud rate away, it must be reasonable and capable by the hardware
+   and software.
 
 3. **Drain the buffer.** Keep reading until you see the shell prompt string
-   `>:`. This clears old buffer content, since reads begin from the buffer start
-   — not your last write.
+   `">: "`. This clears old buffer content, since reads begin from the buffer
+   start — not your last write.
 
-4. **Enter RPC mode.** Send:
-
-   ```txt
-   start_rpc_session\r
-   ```
-
-   > **Note:** `\r\n` does **not** work here.
+4. **Enter RPC mode.** Write the string: `start_rpc_session\r`
+   > **Note:** `\r\n` does **not** work here. I do not know why.
 
 5. **Drain again.** Read until you receive `\n`, which indicates that the
    Flipper has accepted the command.
