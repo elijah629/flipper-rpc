@@ -5,11 +5,11 @@
 //! ## Examples
 //!
 //! ```no_run
-//! use flipper_cli::serial::cli::SerialCliTransport;
+//! use flipper_rpc::{error::Result, transport::{Transport, serial::cli::SerialCliTransport}};
 //!
-//! # fn main(port: String) -> Result<(), Box<dyn std::error::Error>> {
+//! # fn main() -> Result<()> {
 //!
-//! let mut cli = SerialCliTransport::new(port.to_string())?;
+//! let mut cli = SerialCliTransport::new("/dev/ttyACM0".to_string())?;
 //!
 //! // Set the LED to green
 //!
@@ -19,9 +19,9 @@
 //! # }
 //! ```
 
+use crate::error::Error;
 use crate::transport::serial::helpers::drain_until_str;
-use log::debug;
-use std::io;
+use crate::{error::Result, logging::debug};
 use std::time::Duration;
 
 use serialport::SerialPort;
@@ -40,9 +40,11 @@ use super::{
 /// ## Examples
 ///
 /// ```no_run
-/// use flipper_cli::serial::cli::SerialCliTransport;
+/// use flipper_rpc::{transport::Transport, error::Result, transport::serial::cli::SerialCliTransport};
 ///
-/// # fn main(port: String) -> Result<(), Box<dyn std::error::Error>> {
+/// # fn main() -> Result<()> {
+///
+/// let port = "/dev/ttyACM0";
 ///
 /// let mut cli = SerialCliTransport::new(port.to_string())?;
 ///
@@ -67,8 +69,9 @@ impl SerialCliTransport {
     /// appear
     ///
     /// The above errors occur after a 2 second timeout
-    pub fn new(port: String) -> Result<Self, io::Error> {
-        let mut port = serialport::new(port, FLIPPER_BAUD)
+    #[cfg_attr(feature = "tracing", tracing::instrument)]
+    pub fn new<S: AsRef<str> + std::fmt::Debug>(port: S) -> Result<Self> {
+        let mut port = serialport::new(port.as_ref(), FLIPPER_BAUD)
             .timeout(Duration::from_secs(2))
             .open()?;
 
@@ -86,7 +89,8 @@ impl SerialCliTransport {
     /// # Errors
     ///
     /// Will error if the command could not be sent or if the command does not reply with a newline
-    pub fn into_rpc(mut self) -> Result<SerialRpcTransport, io::Error> {
+    #[cfg_attr(feature = "tracing", tracing::instrument)]
+    pub fn into_rpc(mut self) -> Result<SerialRpcTransport> {
         self.send("start_rpc_session".to_string())?;
         drain_until(&mut self.port, b'\n', Duration::from_secs(2))?;
 
@@ -95,9 +99,10 @@ impl SerialCliTransport {
 }
 
 impl Transport<String> for SerialCliTransport {
-    type Err = io::Error;
+    type Err = Error;
 
-    fn send(&mut self, cmd: String) -> Result<(), Self::Err> {
+    #[cfg_attr(feature = "tracing", tracing::instrument)]
+    fn send(&mut self, cmd: String) -> std::result::Result<(), Self::Err> {
         self.port.write_all(cmd.as_bytes())?;
         self.port.write_all(b"\r")?;
         self.port.flush()?;
@@ -105,7 +110,8 @@ impl Transport<String> for SerialCliTransport {
         Ok(())
     }
 
-    fn receive(&mut self) -> Result<String, Self::Err> {
+    #[cfg_attr(feature = "tracing", tracing::instrument)]
+    fn receive(&mut self) -> std::result::Result<String, Self::Err> {
         let string = read_to_string_no_eof(&mut self.port)?;
 
         Ok(string)

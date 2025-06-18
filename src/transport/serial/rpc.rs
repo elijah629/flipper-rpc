@@ -3,42 +3,50 @@
 //! # Examples
 //!
 //! ```no_run
-//! # fn main() -> std::io::Result<()> {
+//! use flipper_rpc::{rpc::{res::Response, req::Request}, error::Result, transport::serial::rpc::SerialRpcTransport};
+//! use flipper_rpc::transport::Transport;
+//!
+//! # fn main() -> Result<()> {
 //! let mut cli = SerialRpcTransport::new("/dev/ttyACM0".to_string())?;
 //!
-//! let resp = cli.send_and_recieve(RpcRequest::Ping(vec![1, 2, 3, 4]))?; // or send_raw for raw proto messages!
+//! let resp = cli.send_and_receive(Request::Ping(vec![1, 2, 3, 4]))?; // or send_raw for raw proto messages!
 //!
-//! asserteq!(resp, RpcResponse::Ping(vec![1, 2, 3, 4]));
+//! assert_eq!(resp, Response::Ping(vec![1, 2, 3, 4]));
 //! # Ok(())
 //! # }
 //! ```
+use crate::error::{Error, Result};
+use crate::logging::{debug, trace};
 use crate::{
     proto,
-    rpc::{RpcRequest, RpcResponse},
     transport::{
-        Transport, TransportRaw,
+        TransportRaw,
         serial::{
             FLIPPER_BAUD,
-            helpers::{drain_until, drain_until_str, varint_length},
+            helpers::{drain_until, drain_until_str},
         },
     },
 };
-use log::{debug, trace};
 use prost::Message;
 use serialport::SerialPort;
-use std::{io, time::Duration};
+use std::time::Duration;
 
 /// A transport that sends RPC messages on a port
 ///
 /// # Examples
 ///
 /// ```no_run
-/// # fn main() -> std::io::Result<()> {
+/// use flipper_rpc::transport::serial::rpc::SerialRpcTransport;
+/// use flipper_rpc::rpc::{req::Request, res::Response};
+/// use flipper_rpc::error::Result;
+/// use flipper_rpc::transport::Transport;
+///
+/// # fn main() -> Result<()> {
 /// let mut cli = SerialRpcTransport::new("/dev/ttyACM0".to_string())?;
 ///
-/// let resp = cli.send_and_recieve(RpcRequest::Ping(vec![1, 2, 3, 4]))?; // or send_raw for raw proto messages!
+/// let resp = cli.send_and_receive(Request::Ping(vec![1, 2, 3, 4]))?; // or send_raw for raw proto messages!
 ///
-/// asserteq!(resp, RpcResponse::Ping(vec![1, 2, 3, 4]));
+/// assert_eq!(resp, Response::Ping(vec![1, 2, 3, 4]));
 /// # Ok(())
 /// # }
 /// ```
@@ -61,13 +69,18 @@ impl SerialRpcTransport {
     /// # Examples
     ///
     /// ```no_run
-    /// # fn main() -> std::io::Result<()> {
+    /// use flipper_rpc::{error::Result, transport::serial::rpc::SerialRpcTransport};
+    ///
+    /// # fn main() -> Result<()> {
+    ///
     /// let mut cli = SerialRpcTransport::new("/dev/ttyACM0".to_string())?;
+    ///
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(port: String) -> Result<Self, io::Error> {
-        let mut port = serialport::new(port, FLIPPER_BAUD)
+    #[cfg_attr(feature = "tracing", tracing::instrument)]
+    pub fn new<S: AsRef<str> + std::fmt::Debug>(port: S) -> Result<Self> {
+        let mut port = serialport::new(port.as_ref(), FLIPPER_BAUD)
             .timeout(Duration::from_secs(2))
             .open()?;
 
@@ -91,7 +104,8 @@ impl SerialRpcTransport {
     /// WARN: Does not reconfigure the port, just passes it into the internal holder, you must make
     /// sure that the port is in an RPC session. To convert a SerialCliTransport into
     /// a SerialRpcTransport, use SerialCliTransport::into_rpc(self) instead.
-    pub fn from_port(port: Box<dyn SerialPort>) -> Result<Self, io::Error> {
+    #[cfg_attr(feature = "tracing", tracing::instrument)]
+    pub fn from_port(port: Box<dyn SerialPort>) -> Result<Self> {
         Ok(Self {
             command_index: 0,
             port,
@@ -100,12 +114,12 @@ impl SerialRpcTransport {
 }
 
 impl TransportRaw<proto::Main> for SerialRpcTransport {
-    type Err = io::Error;
+    type Err = Error;
 
     /// Sends a length-delimited Protobuf RPC message to the Flipper.
     ///
     /// The internal command counter is used to set `command_id` on the message, whatever value is
-    /// set in `rpc` will be overwritten
+    /// set in `value` will be overwritten
     ///
     /// # Errors
     ///
@@ -114,17 +128,24 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     /// # Examples
     ///
     /// ```no_run
+    /// use flipper_rpc::proto;
+    /// use flipper_rpc::proto::CommandStatus;
+    /// use flipper_rpc::proto::main::Content;
+    /// use flipper_rpc::proto::system;
+    /// use flipper_rpc::transport::serial::rpc::SerialRpcTransport;
+    /// use flipper_rpc::transport::TransportRaw;
+    /// use flipper_rpc::error::Result;
     ///
-    /// # fn main() -> std::io::Result<()> {
+    /// # fn main() -> Result<()> {
     ///
-    /// let cli = SerialRpcTransport::new("/dev/ttyACM0".to_string())?;
+    /// let mut cli = SerialRpcTransport::new("/dev/ttyACM0")?;
     ///
     /// let ping = proto::Main {
     /// command_id: 0,
     ///     command_status: proto::CommandStatus::Ok.into(),
     ///     has_next: false,
     ///     content: Some(proto::main::Content::SystemPingRequest(
-    ///         proto::system::PingRequest {
+    ///         system::PingRequest {
     ///             data: vec![0xDE, 0xAD, 0xBE, 0xEF],
     ///         },
     ///     )),
@@ -134,17 +155,25 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     /// # Ok(())
     /// # }
     /// ```
-    fn send_raw(&mut self, value: proto::Main) -> Result<(), Self::Err> {
+    #[cfg_attr(feature = "tracing", tracing::instrument)]
+    fn send_raw(&mut self, mut value: proto::Main) -> std::result::Result<(), Self::Err> {
         trace!("send_rpc_proto");
+        debug!("command index: {}", self.command_index);
 
-        debug!("Encoding RPC");
+        value.command_id = self.command_index;
+
         let encoded = value.encode_length_delimited_to_vec();
-        debug!("Writing RPC");
         self.port.write_all(&encoded)?;
 
         self.port.flush()?;
 
-        self.command_index = self.command_index.wrapping_add(1);
+        // Command streams of has_next for chunked data MUST share the same command ID. The entire
+        // chain must have it. This will inc after data is sent and the chain will have the same id
+        // for all
+        if !value.has_next {
+            self.command_index = self.command_index.wrapping_add(1);
+        }
+
         Ok(())
     }
 
@@ -162,11 +191,24 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     /// # Examples
     ///
     /// ```no_run
-    /// let response = cli.recieve_raw()?;
+    /// use flipper_rpc::transport::serial::rpc::SerialRpcTransport;
+    /// use flipper_rpc::error::Result;
+    /// use flipper_rpc::transport::TransportRaw;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let mut cli = SerialRpcTransport::new("/dev/ttyACM0".to_string())?;
+    /// let response = cli.receive_raw()?;
+    /// # Ok(())
+    /// # }
     /// ```
-    #[cfg(feature = "optimized-proto-reading")]
-    fn receive_raw(&mut self) -> Result<proto::Main, Self::Err> {
+    #[cfg_attr(feature = "tracing", tracing::instrument)]
+    #[cfg(feature = "serial-optimized-varint-reading")]
+    fn receive_raw(&mut self) -> std::result::Result<proto::Main, Self::Err> {
         use prost::bytes::Buf;
+
+        use crate::transport::serial::helpers::varint_length;
+
+        self.port.flush()?;
 
         trace!("read_rpc_proto");
 
@@ -187,7 +229,7 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
         // still read only once if it doesn't fail
 
         // Error-prone code
-        // ```rs
+        // ```no_run
         // let read = self.port.read(&mut buf)?;
         // ```
         //
@@ -205,7 +247,7 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
                     read += n
                 }
                 Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => break,
-                Err(e) => return Err(e),
+                Err(e) => return Err(e.into()),
             }
         }
 
@@ -213,7 +255,8 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "no data read, failed to parse varint",
-            ));
+            )
+            .into());
         }
 
         debug!("Decoding data length");
@@ -300,14 +343,17 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     /// This method issues up to 11 syscalls but and relies on only heap buffers.
     /// Opt to use read_rpc_proto when possible
     /// NOTE: Optimized method disabled
-    #[cfg(not(feature = "optimized-proto-reading"))]
+    #[cfg(not(feature = "serial-optimized-varint-reading"))]
+    #[cfg_attr(feature = "tracing", tracing::instrument)]
     fn receive_raw(&mut self) -> Result<proto::Main, Self::Err> {
         trace!("bytewise-read");
         // NOTE: Comapred to the one above, this looks stupid and shitty. It makes a maximum of 11
         // syscalls, with a minimum of 2. 11 for large messages and 2 for messages < 127 bytes.
         // It also only relies on the heap
         //
-        // Useful for less-complex things but otherwise use the other version
+        // Useful for less-complex and very small transfers. Otherwise use the other version
+
+        self.port.flush()?;
 
         let mut buf = Vec::with_capacity(10);
         let mut byte = [0u8; 1];
@@ -327,33 +373,5 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
         let main = proto::Main::decode(msg_buf.as_slice())?;
 
         Ok(main)
-    }
-}
-
-impl Transport<RpcRequest, Option<RpcResponse>> for SerialRpcTransport {
-    type Err = io::Error;
-
-    fn send(&mut self, req: RpcRequest) -> Result<(), Self::Err> {
-        let proto = req.into_rpc(self.command_index, false);
-
-        self.send_raw(proto)?;
-
-        self.command_index = self.command_index.wrapping_add(1);
-
-        Ok(())
-    }
-
-    /// Recieves a RPC reponse. Returns None if the response is Empty
-    fn receive(&mut self) -> Result<Option<RpcResponse>, Self::Err> {
-        let response = self.receive_raw()?;
-
-        let rpc = response.into();
-
-        let rpc = match rpc {
-            RpcResponse::Empty => None,
-            _ => Some(rpc),
-        };
-
-        Ok(rpc)
     }
 }

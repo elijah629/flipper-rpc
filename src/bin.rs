@@ -1,21 +1,24 @@
 use flipper_rpc::{
-    rpc::RpcRequest,
-    transport::{
-        Transport,
-        serial::{list_flipper_ports, rpc::SerialRpcTransport},
-    },
+    error::Result,
+    storage::FlipperFs,
+    transport::serial::{list_flipper_ports, rpc::SerialRpcTransport},
 };
 
-fn main() -> std::io::Result<()> {
+fn main() -> Result<()> {
     let ports = list_flipper_ports()?;
 
     let port = &ports[0].port_name;
 
-    let mut cli = SerialRpcTransport::new(port.to_string())?;
+    let mut cli = SerialRpcTransport::new(port)?;
 
-    let response = cli.send_and_receive(RpcRequest::SystemPlayAudiovisualAlert)?;
+    cli.fs_mkdir("/ext/path")?;
+    cli.fs_write("/ext/path/file.txt", "Hello, what is this?")?;
 
-    assert!(response.is_none());
+    println!("{:?}", cli.fs_readdir("/ext/path")?);
+
+    let out = cli.fs_read("/ext/path")?;
+    println!("{out:?}");
+    cli.fs_rm("/ext/path")?;
 
     Ok(())
 }

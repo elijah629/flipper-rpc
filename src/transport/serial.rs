@@ -1,6 +1,6 @@
 //! Implementation for serial communication protocols
 
-use log::debug;
+use crate::logging::debug;
 
 pub mod cli;
 pub mod helpers;
@@ -10,6 +10,7 @@ pub mod rpc;
 pub const FLIPPER_BAUD: u32 = 115_200;
 
 /// A flipper device. Contains port and device name;
+#[derive(Debug)]
 pub struct FlipperDevice {
     /// Port name. /dev/ttyACMX on linux or COMX on windows.
     pub port_name: String,
@@ -20,6 +21,7 @@ pub struct FlipperDevice {
 /// Lists all flippers connected to the current system
 ///
 /// Scans ports and filters by manufacturer name == "Flipper Devices Inc."
+#[cfg_attr(feature = "tracing", tracing::instrument)]
 pub fn list_flipper_ports() -> Result<Vec<FlipperDevice>, serialport::Error> {
     debug!("Scanning for ports\n---");
 

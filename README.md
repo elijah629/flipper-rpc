@@ -12,7 +12,7 @@ from a Flipper Zero over a serial connection.
 
 ## ✨ Features
 
-- :log: Log compatible
+- Tracing compatible
 - 🔍 Automatic Flipper detection
 - 🧠 Full
   [flipperzero-protobuf](https://github.com/flipperdevices/flipperzero-protobuf)
@@ -42,7 +42,7 @@ Or add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-flipper-rpc = "0.1.0"  # Replace with the latest version from crates.io
+flipper-rpc = "0.3.0"  # Replace with the latest version from crates.io
 ```
 
 ## 🚀 Usage
@@ -53,9 +53,7 @@ let port = &ports[0].port_name;
 
 let mut cli = SerialRpcTransport::new(port.to_string())?;
 
-let response = cli.send_and_receive(RpcRequest::SystemPlayAudiovisualAlert)?;
-
-assert!(response.is_none());
+let response = cli.send_and_receive(Request::SystemPlayAudiovisualAlert)?;
 ```
 
 ---
@@ -141,3 +139,10 @@ that functionality into this standalone library.
 
 > 💫 _Shameless plug:_ If you find this useful,
 > [give it a star](https://github.com/elijah629/flippy) ⭐ — I'd appreciate it!
+
+## Credits
+
+This project would not be possible without two amazing repos:
+
+- [flipwire](https://github.com/liamhays/flipwire)
+- [flipperzero_protobuf_py](https://github.com/flipperdevices/flipperzero_protobuf_py)

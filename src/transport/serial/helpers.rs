@@ -1,10 +1,10 @@
 //! Helper functions for serial communication
 
 use core::str;
-use std::io::{self, ErrorKind, Read};
-use std::time::{Duration, Instant};
-
-use std::io::Result;
+use std::{
+    io::{ErrorKind, Read, Result},
+    time::{Duration, Instant},
+};
 
 /// Drain a stream until a str + padding chunk
 ///
@@ -76,12 +76,12 @@ pub fn read_to_string_no_eof<R: Read>(reader: &mut R) -> Result<String> {
         match reader.read(&mut temp) {
             Ok(0) => break,
             Ok(n) => buffer.extend_from_slice(&temp[..n]),
-            Err(ref e) if e.kind() == io::ErrorKind::TimedOut => break,
+            Err(ref e) if e.kind() == ErrorKind::TimedOut => break,
             Err(e) => return Err(e),
         }
     }
 
-    String::from_utf8(buffer).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+    String::from_utf8(buffer).map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e))
 }
 
 /// Drains a stream until a specific byte is found. Will read over by at most 256 bytes.
@@ -117,11 +117,13 @@ pub fn drain_until<R: Read>(reader: &mut R, delim: u8, timeout: Duration) -> Res
 /// This does not allocate or write the varint, only computes its length.
 ///
 /// # Examples
-///
 /// ```
+/// use flipper_rpc::transport::serial::helpers::varint_length;
+///
 /// let len = varint_length(128);
 /// assert_eq!(len, 2);
 /// ```
+#[cfg_attr(feature = "tracing", tracing::instrument)]
 pub fn varint_length(mut value: usize) -> usize {
     let mut len = 1;
     while value >= 0x80 {

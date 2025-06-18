@@ -1,0 +1,1253 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 1adf8aa..d12b04a 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -28,9 +28,9 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
+ 
+ [[package]]
+ name = "cfg-if"
+-version = "1.0.0"
++version = "1.0.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
++checksum = "9555578bc9e57714c812a1f84e4fc5b4d21fcb063490c624de019f7464c91268"
+ 
+ [[package]]
+ name = "core-foundation"
+@@ -58,12 +58,12 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
+ name = "flipper-rpc"
+ version = "0.2.0"
+ dependencies = [
+- "log",
++ "md5",
+  "memchr",
+- "paste",
+  "prost",
+  "serialport",
+  "thiserror",
++ "tracing",
+ ]
+ 
+ [[package]]
+@@ -87,15 +87,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "libc"
+-version = "0.2.172"
++version = "0.2.174"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "d750af042f7ef4f724306de029d18836c26c1765a54a6a3f094cbd23a7267ffa"
+-
+-[[package]]
+-name = "log"
+-version = "0.4.27"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
++checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
+ 
+ [[package]]
+ name = "mach2"
+@@ -106,11 +100,17 @@ dependencies = [
+  "libc",
+ ]
+ 
++[[package]]
++name = "md5"
++version = "0.7.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
++
+ [[package]]
+ name = "memchr"
+-version = "2.7.4"
++version = "2.7.5"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
++checksum = "32a282da65faaf38286cf3be983213fcf1d2e2a58700e808f83f4ea9a4804bc0"
+ 
+ [[package]]
+ name = "nix"
+@@ -124,10 +124,16 @@ dependencies = [
+ ]
+ 
+ [[package]]
+-name = "paste"
+-version = "1.0.15"
++name = "once_cell"
++version = "1.21.3"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
++checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
++
++[[package]]
++name = "pin-project-lite"
++version = "0.2.16"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "3b3cff922bd51709b605d9ead9aa71031d81447142d828eb4a6eba76fe619f9b"
+ 
+ [[package]]
+ name = "proc-macro2"
+@@ -140,9 +146,8 @@ dependencies = [
+ 
+ [[package]]
+ name = "prost"
+-version = "0.13.5"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "2796faa41db3ec313a31f7624d9286acf277b52de526150b7e69f3debf891ee5"
++version = "0.14.1"
++source = "git+https://github.com/tokio-rs/prost?branch=master#9965a988a7f95d55c106b933a82a3e657dce02c2"
+ dependencies = [
+  "bytes",
+  "prost-derive",
+@@ -150,9 +155,8 @@ dependencies = [
+ 
+ [[package]]
+ name = "prost-derive"
+-version = "0.13.5"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
++version = "0.14.1"
++source = "git+https://github.com/tokio-rs/prost?branch=master#9965a988a7f95d55c106b933a82a3e657dce02c2"
+ dependencies = [
+  "anyhow",
+  "itertools",
+@@ -196,9 +200,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "syn"
+-version = "2.0.101"
++version = "2.0.103"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "8ce2b7fc941b3a24138a0a7cf8e858bfc6a992e7978a068a5c760deb0ed43caf"
++checksum = "e4307e30089d6fd6aff212f2da3a1f9e32f3223b1f010fb09b7c95f90f3ca1e8"
+ dependencies = [
+  "proc-macro2",
+  "quote",
+@@ -225,6 +229,37 @@ dependencies = [
+  "syn",
+ ]
+ 
++[[package]]
++name = "tracing"
++version = "0.1.41"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "784e0ac535deb450455cbfa28a6f0df145ea1bb7ae51b821cf5e7927fdcfbdd0"
++dependencies = [
++ "pin-project-lite",
++ "tracing-attributes",
++ "tracing-core",
++]
++
++[[package]]
++name = "tracing-attributes"
++version = "0.1.30"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "81383ab64e72a7a8b8e13130c49e3dab29def6d0c7d76a03087b3cf71c5c6903"
++dependencies = [
++ "proc-macro2",
++ "quote",
++ "syn",
++]
++
++[[package]]
++name = "tracing-core"
++version = "0.1.34"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "b9d12581f227e93f094d3af2ae690a574abb8a2b9b7a96e7cfe9647b2b617678"
++dependencies = [
++ "once_cell",
++]
++
+ [[package]]
+ name = "unescaper"
+ version = "0.1.6"
+diff --git a/Cargo.toml b/Cargo.toml
+index 24c9470..18eeb59 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -11,16 +11,44 @@ readme = "README.md"
+ license = "MIT"
+ 
+ [dependencies]
+-log = "0.4.27"
+-memchr = "2.7.4"
+-paste = "1.0.15"
+-prost = "0.13.5"
+-serialport = { version = "4.7.2", default-features = false }
++
++# Serial
++serialport = { version = "4.7.2", default-features = false, optional = true }
++memchr = { version = "2.7.4", optional = true }
++
++# Transport
++md5 = { version = "0.7.0", optional = true }
++prost = { version = "0.14.1", git = "https://github.com/tokio-rs/prost", branch = "master", optional = true }
++
++# Errors & Logging
+ thiserror = "2.0.12"
++tracing = { version = "0.1.41", optional = true }
+ 
+ [features]
+-default = ["optimized-proto-reading"]
+-optimized-proto-reading = []
++default = ["minimal"]
++
++# Feature packs
++full = ["easy-rpc", "storage", "storage-check-md5", "transport-all"]
++minimal = ["proto"]
++
++# Base codec support, most users will want this as, well... this is what the crate provides
++proto = ["dep:prost"]
++
++easy-rpc = ["proto"] # Enables the easy to use RPC wrapper to avoid manual construction of proto::Main's
++storage = ["easy-rpc", "dep:md5"] # Enables FS wrapper. Depends on "easy" as it uses the easier APIs internally
++storage-check-md5 = ["storage"] # Verifies MD5 hashes from the flipper when reading. Will always calculate on write.
++
++# Transport
++transport-all = ["transport-serial-opt"] # Enables all transports
++transport-any = ["proto"] # Enables support for any transport, all transports require this.
++
++## Serial
++transport-serial = ["transport-any", "dep:serialport", "dep:memchr"] # Enables support for serial transport
++transport-serial-opt = ["transport-serial", "serial-optimized-varint-reading"]
++serial-optimized-varint-reading = [] # Uses a faster protobuf read method which only uses 2 syscalls and all stack memory! One of which is for the varint.
++
++# Adds logging through tokio tracing
++tracing = ["dep:tracing"]
+ 
+ [lib]
+ path = "src/lib.rs"
+diff --git a/src/bin.rs b/src/bin.rs
+index 185a5a2..1ebab84 100644
+--- a/src/bin.rs
++++ b/src/bin.rs
+@@ -1,21 +1,24 @@
+ use flipper_rpc::{
+-    rpc::RpcRequest,
+-    transport::{
+-        Transport,
+-        serial::{list_flipper_ports, rpc::SerialRpcTransport},
+-    },
++    error::Result,
++    storage::FlipperFs,
++    transport::serial::{list_flipper_ports, rpc::SerialRpcTransport},
+ };
+ 
+-fn main() -> std::io::Result<()> {
++fn main() -> Result<()> {
+     let ports = list_flipper_ports()?;
+ 
+     let port = &ports[0].port_name;
+ 
+-    let mut cli = SerialRpcTransport::new(port.to_string())?;
++    let mut cli = SerialRpcTransport::new(port)?;
+ 
+-    let response = cli.send_and_receive(RpcRequest::SystemPlayAudiovisualAlert)?;
++    cli.fs_mkdir("/ext/path")?;
++    cli.fs_write("/ext/path/file.txt", "Hello, what is this?")?;
+ 
+-    assert!(response.is_none());
++    println!("{:?}", cli.fs_readdir("/ext/path")?);
++
++    let out = cli.fs_read("/ext/path")?;
++    println!("{out:?}");
++    cli.fs_rm("/ext/path")?;
+ 
+     Ok(())
+ }
+diff --git a/src/lib.rs b/src/lib.rs
+index b094827..2a9fb6a 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -1,25 +1,43 @@
++#![deny(missing_docs)]
++#![deny(unused_must_use)]
++#![deny(clippy::all)]
++
+ //! `flipper-rpc` is a Rust library for sending and receiving RPC messages to and
+ //! from a Flipper Zero over a serial connection.
+ //! ## Usage
+-//! ```rust
+-//! # fn main() -> std::io::Result<()> {
++//! ```no_run
++//! use flipper_rpc::{
++//!    error::Result,
++//!    rpc::req::Request,
++//!    transport::{Transport, serial::{list_flipper_ports, rpc::SerialRpcTransport}},
++//! };
++//!
++//! # fn main() -> Result<()> {
+ //!    let ports = list_flipper_ports()?;
+ //!
+ //!    let port = &ports[0].port_name;
+ //!
+ //!    let mut cli = SerialRpcTransport::new(port.to_string())?;
+ //!
+-//!    let response = cli.send_and_receive(RpcRequest::SystemPlayAudiovisualAlert)?;
+-//!
+-//!    assert!(response.is_none());
++//!    let _ = cli.send_and_receive(Request::SystemPlayAudiovisualAlert)?;
+ //!
+ //! # Ok(())
+ //! # }
+ //! ```
+ 
++// I don't have the time to write docs for auto-generated things
++#[cfg(feature = "proto")]
++#[allow(missing_docs)]
+ pub mod proto;
+ 
+-#[deny(missing_docs)]
++pub mod error;
++pub mod logging;
++
++#[cfg(feature = "easy-rpc")]
+ pub mod rpc;
+-#[deny(missing_docs)]
++
++#[cfg(feature = "storage")]
++pub mod storage;
++
++#[cfg(feature = "transport-any")]
+ pub mod transport;
+diff --git a/src/proto/storage.rs b/src/proto/storage.rs
+index 9303414..fd8fde5 100644
+--- a/src/proto/storage.rs
++++ b/src/proto/storage.rs
+@@ -14,17 +14,7 @@ pub struct File {
+ }
+ /// Nested message and enum types in `File`.
+ pub mod file {
+-    #[derive(
+-        Clone,
+-        Copy,
+-        Debug,
+-        PartialEq,
+-        Eq,
+-        Hash,
+-        PartialOrd,
+-        Ord,
+-        ::prost::Enumeration
+-    )]
++    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+     #[repr(i32)]
+     pub enum FileType {
+         /// default value
+diff --git a/src/proto/system.rs b/src/proto/system.rs
+index a51312d..3581def 100644
+--- a/src/proto/system.rs
++++ b/src/proto/system.rs
+@@ -16,17 +16,7 @@ pub struct RebootRequest {
+ }
+ /// Nested message and enum types in `RebootRequest`.
+ pub mod reboot_request {
+-    #[derive(
+-        Clone,
+-        Copy,
+-        Debug,
+-        PartialEq,
+-        Eq,
+-        Hash,
+-        PartialOrd,
+-        Ord,
+-        ::prost::Enumeration
+-    )]
++    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+     #[repr(i32)]
+     pub enum RebootMode {
+         /// default value
+@@ -131,17 +121,7 @@ pub struct UpdateResponse {
+ }
+ /// Nested message and enum types in `UpdateResponse`.
+ pub mod update_response {
+-    #[derive(
+-        Clone,
+-        Copy,
+-        Debug,
+-        PartialEq,
+-        Eq,
+-        Hash,
+-        PartialOrd,
+-        Ord,
+-        ::prost::Enumeration
+-    )]
++    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+     #[repr(i32)]
+     pub enum UpdateResultCode {
+         Ok = 0,
+diff --git a/src/rpc.rs b/src/rpc.rs
+index 96d5f1b..6347ead 100644
+--- a/src/rpc.rs
++++ b/src/rpc.rs
+@@ -1,327 +1,9 @@
+-//! This file aims to make a better experience for end users by mapping proto::* classes into
+-//! a user friendly Rpc{Request, Response}::* enum and have better documentation
+-
+-use paste::paste;
+-
+-use crate::proto::StopSession;
+-use crate::proto::app::{AppStateResponse, GetErrorResponse, LockStatusResponse};
+-use crate::proto::desktop::{
+-    IsLockedRequest, Status, StatusSubscribeRequest, StatusUnsubscribeRequest, UnlockRequest,
+-};
+-use crate::proto::gpio::{
+-    GetOtgMode, GetOtgModeResponse, GetPinMode, GetPinModeResponse, ReadPin, ReadPinResponse,
+-    SetInputPull, SetOtgMode, SetPinMode, WritePin,
+-};
+-use crate::proto::gui::{
+-    ScreenFrame, SendInputEventRequest, StartScreenStreamRequest, StartVirtualDisplayRequest,
+-    StopScreenStreamRequest, StopVirtualDisplayRequest,
+-};
+-use crate::proto::property::{GetRequest, GetResponse};
+-use crate::proto::storage::{
+-    InfoResponse, ListResponse, Md5sumResponse, ReadResponse, StatResponse, TimestampResponse,
+-};
+-use crate::proto::system::{
+-    DeviceInfoRequest, DeviceInfoResponse, FactoryResetRequest, GetDateTimeResponse, PingRequest,
+-    PowerInfoResponse, ProtobufVersionResponse, RebootRequest, SetDateTimeRequest, UpdateResponse,
+-};
+-use crate::proto::{
+-    self, CommandStatus,
+-    app::{
+-        AppButtonPressReleaseRequest, AppButtonPressRequest, AppButtonReleaseRequest,
+-        AppExitRequest, AppLoadFileRequest, DataExchangeRequest, GetErrorRequest,
+-        LockStatusRequest, StartRequest,
+-    },
+-    storage::{
+-        BackupCreateRequest, BackupRestoreRequest, DeleteRequest, InfoRequest, ListRequest,
+-        Md5sumRequest, MkdirRequest, ReadRequest, RenameRequest, StatRequest, TarExtractRequest,
+-        TimestampRequest, WriteRequest,
+-    },
+-    system::{DateTime, UpdateRequest, reboot_request::RebootMode},
+-};
+-
+-// Generated by ChatGPT idk how to do macros
+-macro_rules! define_into_impl {
+-    ($enum_name:ident $variant:ident $typ:ty) => {
+-        paste! {
+-            impl $enum_name {
+-               #[doc = stringify!(Reads the internal $typ data from a $enum_name::$variant)]
+-               #[doc = r" Panics if the variant is not the same as the data type requested"]
+-               pub fn [<into_ $variant:lower>](self) -> $typ {
+-                    match self {
+-                        $enum_name::$variant(x) => x,
+-                        _ => panic!(concat!(
+-                            "called `into_",
+-                            stringify!($variant),
+-                            "` on a non-",
+-                            stringify!($variant),
+-                            " value"
+-                        )),
+-                    }
+-                }
+-            }
+-        }
+-    };
+-    ($enum_name:ident $variant:ident) => {};
+-}
+-
+-macro_rules! define_into_enum {
+-     (
+-        $(#[$enum_meta:meta])*
+-        $vis:vis enum $enum_name:ident {
+-            $(
+-                $(#[$variant_meta:meta])*
+-                $variant:ident $( ( $typ:ty ) )?
+-            ),* $(,)?
+-        }
+-    ) => {
+-        $(#[$enum_meta])*
+-        $vis enum $enum_name {
+-            $(
+-                $(#[$variant_meta])*
+-                #[doc = stringify!($enum_name::$variant)]
+-                $variant $( ( $typ ) )?,
+-            )*
+-        }
+-
+-        $(
+-            define_into_impl!($enum_name $variant $( $typ)?);
+-        )*
+-    };
+-}
+-
+-// bootleg proc-macros but i dont wanna make any
+-define_into_enum! {
+-    /// Wrapper around proto::Main tailored for requests. Can be turned into a proto::Main by
+-    /// RcpRequest::into_rpc(self)
+-#[derive(Debug)]
+-pub enum RpcRequest {
+-    StopSession,
+-    Ping(Vec<u8>),
+-    Reboot(RebootMode),
+-    SystemDeviceInfo,
+-    SystemFactoryReset,
+-    SystemGetDatetime,
+-    SystemSetDatetime(DateTime),
+-    SystemPlayAudiovisualAlert,
+-    SystemProtobufVersion,
+-    SystemUpdate(UpdateRequest),
+-    SystemPowerInfo,
+-    StorageInfo(InfoRequest),
+-    StorageTimestamp(TimestampRequest),
+-    StorageStat(StatRequest),
+-    StorageList(ListRequest),
+-    StorageRead(ReadRequest),
+-    StorageWrite(WriteRequest),
+-    StorageDelete(DeleteRequest),
+-    StorageMkdir(MkdirRequest),
+-    StorageMd5sumRequest(Md5sumRequest),
+-    StorageRenameRequest(RenameRequest),
+-    StorageBackupCreateRequest(BackupCreateRequest),
+-    StorageBackupRestoreRequest(BackupRestoreRequest),
+-    StorageTarExtractRequest(TarExtractRequest),
+-    AppStartRequest(StartRequest),
+-    AppLockStatusRequest(LockStatusRequest),
+-    AppExitRequest(AppExitRequest),
+-    AppLoadFileRequest(AppLoadFileRequest),
+-    AppButtonPressRequest(AppButtonPressRequest),
+-    AppButtonReleaseRequest(AppButtonReleaseRequest),
+-    AppButtonPressReleaseRequest(AppButtonPressReleaseRequest),
+-    AppGetErrorRequest(GetErrorRequest),
+-    AppDataExchangeRequest(DataExchangeRequest),
+-    GuiStartScreenStreamRequest(StartScreenStreamRequest),
+-    GuiStopScreenStreamRequest(StopScreenStreamRequest),
+-    GuiSendInputEventRequest(SendInputEventRequest),
+-    GuiStartVirtualDisplayRequest(StartVirtualDisplayRequest),
+-    GuiStopVirtualDisplayRequest(StopVirtualDisplayRequest),
+-    GpioSetPinMode(SetPinMode),
+-    GpioSetInputPull(SetInputPull),
+-    GpioGetPinMode(GetPinMode),
+-    GpioReadPin(ReadPin),
+-    GpioWritePin(WritePin),
+-    GpioGetOtgMode(GetOtgMode),
+-    GpioSetOtgMode(SetOtgMode),
+-    PropertyGetRequest(GetRequest),
+-    DesktopIsLockedRequest(IsLockedRequest),
+-    DesktopUnlockRequest(UnlockRequest),
+-    DesktopStatusSubscribeRequest(StatusSubscribeRequest),
+-    DesktopStatusUnsubscribeRequest(StatusUnsubscribeRequest),
+-}
+-}
+-
+-define_into_enum! {
+-    /// Wrapper around proto::Main tailored for responses. Can be made from a proto::Main by
+-    /// Into/From
+-#[derive(Debug)]
+-pub enum RpcResponse {
+-    Empty,
+-    Ping(Vec<u8>),
+-    SystemDeviceInfoResponse(DeviceInfoResponse),
+-    SystemGetDatetimeResponse(GetDateTimeResponse),
+-    SystemProtobufVersionResponse(ProtobufVersionResponse),
+-    SystemUpdateResponse(UpdateResponse),
+-    SystemPowerInfoResponse(PowerInfoResponse),
+-    StorageInfoResponse(InfoResponse),
+-    StorageTimestampResponse(TimestampResponse),
+-    StorageStatResponse(StatResponse),
+-    StorageListResponse(ListResponse),
+-    StorageReadResponse(ReadResponse),
+-    StorageMd5sumResponse(Md5sumResponse),
+-    AppLockStatusResponse(LockStatusResponse),
+-    AppGetErrorResponse(GetErrorResponse),
+-    GuiScreenFrame(ScreenFrame),
+-    GpioGetPinModeResponse(GetPinModeResponse),
+-    GpioReadPinResponse(ReadPinResponse),
+-    GpioGetOtgModeResponse(GetOtgModeResponse),
+-    AppStateResponse(AppStateResponse),
+-    PropertyGetResponse(GetResponse),
+-    DesktopStatus(Status),
+-}
+-}
+-
+-impl RpcRequest {
+-    /// Creates a proto::Main from an RpcRequest
+-    ///
+-    /// Useful for actually sending the requests, as this is what the API expects. Does not error.
+-    pub fn into_rpc(self, command_id: u32, has_next: bool) -> proto::Main {
+-        use proto::main::Content;
+-
+-        proto::Main {
+-            command_id,
+-            command_status: CommandStatus::Ok.into(),
+-            has_next,
+-
+-            // TODO: Implement user-friendly methods for all of these
+-            content: Some(match self {
+-                RpcRequest::StopSession => Content::StopSession(StopSession {}),
+-                RpcRequest::Ping(data) => Content::SystemPingRequest(PingRequest { data }),
+-                RpcRequest::Reboot(reboot_mode) => Content::SystemRebootRequest(RebootRequest {
+-                    mode: reboot_mode.into(),
+-                }),
+-
+-                RpcRequest::SystemDeviceInfo => {
+-                    Content::SystemDeviceInfoRequest(DeviceInfoRequest {})
+-                }
+-                RpcRequest::SystemFactoryReset => {
+-                    Content::SystemFactoryResetRequest(FactoryResetRequest {})
+-                }
+-                RpcRequest::SystemGetDatetime => {
+-                    Content::SystemGetDatetimeRequest(crate::proto::system::GetDateTimeRequest {})
+-                } // ← import GetDateTimeRequest
+-                RpcRequest::SystemSetDatetime(date_time) => {
+-                    Content::SystemSetDatetimeRequest(SetDateTimeRequest {
+-                        datetime: Some(date_time),
+-                    })
+-                }
+-                RpcRequest::SystemPlayAudiovisualAlert => {
+-                    Content::SystemPlayAudiovisualAlertRequest(
+-                        crate::proto::system::PlayAudiovisualAlertRequest {},
+-                    )
+-                }
+-                RpcRequest::SystemProtobufVersion => Content::SystemProtobufVersionRequest(
+-                    crate::proto::system::ProtobufVersionRequest {},
+-                ),
+-                RpcRequest::SystemUpdate(update_req) => {
+-                    Content::SystemUpdateRequest(UpdateRequest { ..update_req })
+-                }
+-                RpcRequest::SystemPowerInfo => {
+-                    Content::SystemPowerInfoRequest(crate::proto::system::PowerInfoRequest {})
+-                }
+-                RpcRequest::StorageInfo(req) => Content::StorageInfoRequest(req),
+-                RpcRequest::StorageTimestamp(req) => Content::StorageTimestampRequest(req),
+-                RpcRequest::StorageStat(req) => Content::StorageStatRequest(req),
+-                RpcRequest::StorageList(req) => Content::StorageListRequest(req),
+-                RpcRequest::StorageRead(req) => Content::StorageReadRequest(req),
+-                RpcRequest::StorageWrite(req) => Content::StorageWriteRequest(req),
+-                RpcRequest::StorageDelete(req) => Content::StorageDeleteRequest(req),
+-                RpcRequest::StorageMkdir(req) => Content::StorageMkdirRequest(req),
+-                RpcRequest::StorageMd5sumRequest(req) => Content::StorageMd5sumRequest(req),
+-                RpcRequest::StorageRenameRequest(req) => Content::StorageRenameRequest(req),
+-                RpcRequest::StorageBackupCreateRequest(req) => {
+-                    Content::StorageBackupCreateRequest(req)
+-                }
+-                RpcRequest::StorageBackupRestoreRequest(req) => {
+-                    Content::StorageBackupRestoreRequest(req)
+-                }
+-                RpcRequest::StorageTarExtractRequest(req) => Content::StorageTarExtractRequest(req),
+-
+-                RpcRequest::AppStartRequest(req) => Content::AppStartRequest(req),
+-                RpcRequest::AppLockStatusRequest(req) => Content::AppLockStatusRequest(req),
+-                RpcRequest::AppExitRequest(req) => Content::AppExitRequest(req),
+-                RpcRequest::AppLoadFileRequest(req) => Content::AppLoadFileRequest(req),
+-                RpcRequest::AppButtonPressRequest(req) => Content::AppButtonPressRequest(req),
+-                RpcRequest::AppButtonReleaseRequest(req) => Content::AppButtonReleaseRequest(req),
+-                RpcRequest::AppButtonPressReleaseRequest(req) => {
+-                    Content::AppButtonPressReleaseRequest(req)
+-                }
+-                RpcRequest::AppDataExchangeRequest(req) => Content::AppDataExchangeRequest(req),
+-                RpcRequest::AppGetErrorRequest(req) => Content::AppGetErrorRequest(req),
+-
+-                RpcRequest::GuiStartScreenStreamRequest(req) => {
+-                    Content::GuiStartScreenStreamRequest(req)
+-                }
+-                RpcRequest::GuiStopScreenStreamRequest(req) => {
+-                    Content::GuiStopScreenStreamRequest(req)
+-                }
+-                RpcRequest::GuiSendInputEventRequest(req) => Content::GuiSendInputEventRequest(req),
+-                RpcRequest::GuiStartVirtualDisplayRequest(req) => {
+-                    Content::GuiStartVirtualDisplayRequest(req)
+-                }
+-                RpcRequest::GuiStopVirtualDisplayRequest(req) => {
+-                    Content::GuiStopVirtualDisplayRequest(req)
+-                }
+-
+-                RpcRequest::GpioSetPinMode(req) => Content::GpioSetPinMode(req),
+-                RpcRequest::GpioSetInputPull(req) => Content::GpioSetInputPull(req),
+-                RpcRequest::GpioGetPinMode(req) => Content::GpioGetPinMode(req),
+-                RpcRequest::GpioReadPin(req) => Content::GpioReadPin(req),
+-                RpcRequest::GpioWritePin(req) => Content::GpioWritePin(req),
+-                RpcRequest::GpioGetOtgMode(req) => Content::GpioGetOtgMode(req),
+-                RpcRequest::GpioSetOtgMode(req) => Content::GpioSetOtgMode(req),
+-
+-                RpcRequest::PropertyGetRequest(req) => Content::PropertyGetRequest(req),
+-                RpcRequest::DesktopIsLockedRequest(req) => Content::DesktopIsLockedRequest(req),
+-                RpcRequest::DesktopUnlockRequest(req) => Content::DesktopUnlockRequest(req),
+-                RpcRequest::DesktopStatusSubscribeRequest(req) => {
+-                    Content::DesktopStatusSubscribeRequest(req)
+-                }
+-                RpcRequest::DesktopStatusUnsubscribeRequest(req) => {
+-                    Content::DesktopStatusUnsubscribeRequest(req)
+-                }
+-            }),
+-        }
+-    }
+-}
+-
+-impl From<proto::Main> for RpcResponse {
+-    fn from(val: proto::Main) -> Self {
+-        use proto::main::Content::*;
+-        let content = val.content.unwrap();
+-
+-        match content {
+-            Empty(_) => RpcResponse::Empty,
+-            SystemPingResponse(r) => RpcResponse::Ping(r.data),
+-            SystemDeviceInfoResponse(r) => RpcResponse::SystemDeviceInfoResponse(r),
+-            SystemGetDatetimeResponse(r) => RpcResponse::SystemGetDatetimeResponse(r),
+-            SystemProtobufVersionResponse(r) => RpcResponse::SystemProtobufVersionResponse(r),
+-            SystemUpdateResponse(r) => RpcResponse::SystemUpdateResponse(r),
+-            SystemPowerInfoResponse(r) => RpcResponse::SystemPowerInfoResponse(r),
+-            StorageInfoResponse(r) => RpcResponse::StorageInfoResponse(r),
+-            StorageTimestampResponse(r) => RpcResponse::StorageTimestampResponse(r),
+-            StorageStatResponse(r) => RpcResponse::StorageStatResponse(r),
+-            StorageListResponse(r) => RpcResponse::StorageListResponse(r),
+-            StorageReadResponse(r) => RpcResponse::StorageReadResponse(r),
+-            StorageMd5sumResponse(r) => RpcResponse::StorageMd5sumResponse(r),
+-            AppLockStatusResponse(r) => RpcResponse::AppLockStatusResponse(r),
+-            AppGetErrorResponse(r) => RpcResponse::AppGetErrorResponse(r),
+-            GuiScreenFrame(r) => RpcResponse::GuiScreenFrame(r),
+-            GpioGetPinModeResponse(r) => RpcResponse::GpioGetPinModeResponse(r),
+-            GpioReadPinResponse(r) => RpcResponse::GpioReadPinResponse(r),
+-            GpioGetOtgModeResponse(r) => RpcResponse::GpioGetOtgModeResponse(r),
+-            AppStateResponse(r) => RpcResponse::AppStateResponse(r),
+-            PropertyGetResponse(r) => RpcResponse::PropertyGetResponse(r),
+-            DesktopStatus(r) => RpcResponse::DesktopStatus(r),
+-
+-            _ => panic!("Cannot convert {:?} into RpcResponse", content),
+-        }
+-    }
+-}
++//! This module aims to make a better experience for end users by mapping proto::* classes into
++//! a user friendly Rpc{Request, Response}::* enum and have better documentation. Additionally it
++//! maps a CommandStatus or a Response into a Result
++//!
++//! Enabled through easy-rpc feature
++
++pub mod error;
++pub mod req;
++pub mod res;
+diff --git a/src/transport.rs b/src/transport.rs
+index 8ffbec3..a799b98 100644
+--- a/src/transport.rs
++++ b/src/transport.rs
+@@ -1,5 +1,13 @@
+ //! Generic transport traits
+ 
++#[cfg(feature = "easy-rpc")]
++use crate::error::Error;
++use crate::{
++    proto,
++    rpc::{req::Request, res::Response},
++};
++
++#[cfg(feature = "transport-serial")]
+ pub mod serial;
+ 
+ /// Encodes, Decodes, Transports, and Receives data types
+@@ -8,12 +16,19 @@ pub trait Transport<Send, Recv = Send> {
+     type Err: std::error::Error;
+ 
+     /// Send a value of type `Send` over the transport.
++    /// For a reader based transport, this function must consume the sent data, and must not consume the response.
+     fn send(&mut self, value: Send) -> Result<(), Self::Err>;
+ 
+     /// Receive a value of type `Recv` from the transport.
++    /// For a reader based transport, this function must consume stream data.
+     fn receive(&mut self) -> Result<Recv, Self::Err>;
+ 
+     /// Send a value, then immediately wait for and return a response.
++    /// For a reader based transport, this function must consume the sent and received data,
++    /// returning the latter.
++    ///
++    /// By default this function just calls send and receive right after one another. This
++    /// can be changed.
+     fn send_and_receive(&mut self, value: Send) -> Result<Recv, Self::Err> {
+         self.send(value)?;
+         self.receive()
+@@ -26,14 +41,49 @@ pub trait TransportRaw<Send, Recv = Send> {
+     type Err: std::error::Error;
+ 
+     /// Send a value of type `Send` over the transport.
++    /// For a reader based transport, this function must consume the sent data, and must not consume the response.
+     fn send_raw(&mut self, value: Send) -> Result<(), Self::Err>;
+ 
+     /// Receive a value of type `Recv` from the transport.
++    /// For a reader based transport, this function must consume stream data.
+     fn receive_raw(&mut self) -> Result<Recv, Self::Err>;
+ 
+     /// Send a value, then immediately wait for and return a response.
++    /// For a reader based transport, this function must consume the sent and received data,
++    /// returning the latter.
++    ///
++    /// By default this function just calls send_raw and receive_raw right after one another. This
++    /// can be changed.
+     fn send_and_receive_raw(&mut self, value: Send) -> Result<Recv, Self::Err> {
+         self.send_raw(value)?;
+         self.receive_raw()
+     }
+ }
++
++#[cfg(feature = "easy-rpc")]
++// Not sure where this should go.. If any type can raw transport proto messages, they can be
++// converted into Rpc-style messages and used through the easy API.
++impl<T> Transport<Request, Response> for T
++where
++    T: TransportRaw<proto::Main, proto::Main, Err = Error> + std::fmt::Debug,
++{
++    type Err = T::Err;
++
++    #[cfg_attr(feature = "tracing", tracing::instrument)]
++    fn send(&mut self, req: Request) -> Result<(), Self::Err> {
++        let proto = req.into_rpc(false);
++
++        self.send_raw(proto)?;
++
++        Ok(())
++    }
++
++    /// Receives RPC reponse. Returns None if the response is Empty
++    fn receive(&mut self) -> Result<Response, Self::Err> {
++        let response = self.receive_raw()?;
++
++        let rpc = response.into();
++
++        Ok(rpc)
++    }
++}
+diff --git a/src/transport/serial.rs b/src/transport/serial.rs
+index c1f758c..b615766 100644
+--- a/src/transport/serial.rs
++++ b/src/transport/serial.rs
+@@ -1,6 +1,6 @@
+ //! Implementation for serial communication protocols
+ 
+-use log::debug;
++use crate::logging::debug;
+ 
+ pub mod cli;
+ pub mod helpers;
+@@ -10,6 +10,7 @@ pub mod rpc;
+ pub const FLIPPER_BAUD: u32 = 115_200;
+ 
+ /// A flipper device. Contains port and device name;
++#[derive(Debug)]
+ pub struct FlipperDevice {
+     /// Port name. /dev/ttyACMX on linux or COMX on windows.
+     pub port_name: String,
+@@ -20,6 +21,7 @@ pub struct FlipperDevice {
+ /// Lists all flippers connected to the current system
+ ///
+ /// Scans ports and filters by manufacturer name == "Flipper Devices Inc."
++#[cfg_attr(feature = "tracing", tracing::instrument)]
+ pub fn list_flipper_ports() -> Result<Vec<FlipperDevice>, serialport::Error> {
+     debug!("Scanning for ports\n---");
+ 
+diff --git a/src/transport/serial/cli.rs b/src/transport/serial/cli.rs
+index 19eb285..2c14107 100644
+--- a/src/transport/serial/cli.rs
++++ b/src/transport/serial/cli.rs
+@@ -5,11 +5,11 @@
+ //! ## Examples
+ //!
+ //! ```no_run
+-//! use flipper_cli::serial::cli::SerialCliTransport;
++//! use flipper_rpc::{error::Result, transport::{Transport, serial::cli::SerialCliTransport}};
+ //!
+-//! # fn main(port: String) -> Result<(), Box<dyn std::error::Error>> {
++//! # fn main() -> Result<()> {
+ //!
+-//! let mut cli = SerialCliTransport::new(port.to_string())?;
++//! let mut cli = SerialCliTransport::new("/dev/ttyACM0".to_string())?;
+ //!
+ //! // Set the LED to green
+ //!
+@@ -19,9 +19,9 @@
+ //! # }
+ //! ```
+ 
++use crate::error::Error;
+ use crate::transport::serial::helpers::drain_until_str;
+-use log::debug;
+-use std::io;
++use crate::{error::Result, logging::debug};
+ use std::time::Duration;
+ 
+ use serialport::SerialPort;
+@@ -40,9 +40,11 @@ use super::{
+ /// ## Examples
+ ///
+ /// ```no_run
+-/// use flipper_cli::serial::cli::SerialCliTransport;
++/// use flipper_rpc::{transport::Transport, error::Result, transport::serial::cli::SerialCliTransport};
+ ///
+-/// # fn main(port: String) -> Result<(), Box<dyn std::error::Error>> {
++/// # fn main() -> Result<()> {
++///
++/// let port = "/dev/ttyACM0";
+ ///
+ /// let mut cli = SerialCliTransport::new(port.to_string())?;
+ ///
+@@ -67,8 +69,9 @@ impl SerialCliTransport {
+     /// appear
+     ///
+     /// The above errors occur after a 2 second timeout
+-    pub fn new(port: String) -> Result<Self, io::Error> {
+-        let mut port = serialport::new(port, FLIPPER_BAUD)
++    #[cfg_attr(feature = "tracing", tracing::instrument)]
++    pub fn new<S: AsRef<str> + std::fmt::Debug>(port: S) -> Result<Self> {
++        let mut port = serialport::new(port.as_ref(), FLIPPER_BAUD)
+             .timeout(Duration::from_secs(2))
+             .open()?;
+ 
+@@ -86,7 +89,8 @@ impl SerialCliTransport {
+     /// # Errors
+     ///
+     /// Will error if the command could not be sent or if the command does not reply with a newline
+-    pub fn into_rpc(mut self) -> Result<SerialRpcTransport, io::Error> {
++    #[cfg_attr(feature = "tracing", tracing::instrument)]
++    pub fn into_rpc(mut self) -> Result<SerialRpcTransport> {
+         self.send("start_rpc_session".to_string())?;
+         drain_until(&mut self.port, b'\n', Duration::from_secs(2))?;
+ 
+@@ -95,9 +99,10 @@ impl SerialCliTransport {
+ }
+ 
+ impl Transport<String> for SerialCliTransport {
+-    type Err = io::Error;
++    type Err = Error;
+ 
+-    fn send(&mut self, cmd: String) -> Result<(), Self::Err> {
++    #[cfg_attr(feature = "tracing", tracing::instrument)]
++    fn send(&mut self, cmd: String) -> std::result::Result<(), Self::Err> {
+         self.port.write_all(cmd.as_bytes())?;
+         self.port.write_all(b"\r")?;
+         self.port.flush()?;
+@@ -105,7 +110,8 @@ impl Transport<String> for SerialCliTransport {
+         Ok(())
+     }
+ 
+-    fn receive(&mut self) -> Result<String, Self::Err> {
++    #[cfg_attr(feature = "tracing", tracing::instrument)]
++    fn receive(&mut self) -> std::result::Result<String, Self::Err> {
+         let string = read_to_string_no_eof(&mut self.port)?;
+ 
+         Ok(string)
+diff --git a/src/transport/serial/helpers.rs b/src/transport/serial/helpers.rs
+index 735dd80..123b3e9 100644
+--- a/src/transport/serial/helpers.rs
++++ b/src/transport/serial/helpers.rs
+@@ -1,10 +1,10 @@
+ //! Helper functions for serial communication
+ 
+ use core::str;
+-use std::io::{self, ErrorKind, Read};
+-use std::time::{Duration, Instant};
+-
+-use std::io::Result;
++use std::{
++    io::{ErrorKind, Read, Result},
++    time::{Duration, Instant},
++};
+ 
+ /// Drain a stream until a str + padding chunk
+ ///
+@@ -76,12 +76,12 @@ pub fn read_to_string_no_eof<R: Read>(reader: &mut R) -> Result<String> {
+         match reader.read(&mut temp) {
+             Ok(0) => break,
+             Ok(n) => buffer.extend_from_slice(&temp[..n]),
+-            Err(ref e) if e.kind() == io::ErrorKind::TimedOut => break,
++            Err(ref e) if e.kind() == ErrorKind::TimedOut => break,
+             Err(e) => return Err(e),
+         }
+     }
+ 
+-    String::from_utf8(buffer).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
++    String::from_utf8(buffer).map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e))
+ }
+ 
+ /// Drains a stream until a specific byte is found. Will read over by at most 256 bytes.
+@@ -117,11 +117,13 @@ pub fn drain_until<R: Read>(reader: &mut R, delim: u8, timeout: Duration) -> Res
+ /// This does not allocate or write the varint, only computes its length.
+ ///
+ /// # Examples
+-///
+ /// ```
++/// use flipper_rpc::transport::serial::helpers::varint_length;
++///
+ /// let len = varint_length(128);
+ /// assert_eq!(len, 2);
+ /// ```
++#[cfg_attr(feature = "tracing", tracing::instrument)]
+ pub fn varint_length(mut value: usize) -> usize {
+     let mut len = 1;
+     while value >= 0x80 {
+diff --git a/src/transport/serial/rpc.rs b/src/transport/serial/rpc.rs
+index 99cfb7a..dfac279 100644
+--- a/src/transport/serial/rpc.rs
++++ b/src/transport/serial/rpc.rs
+@@ -3,42 +3,50 @@
+ //! # Examples
+ //!
+ //! ```no_run
+-//! # fn main() -> std::io::Result<()> {
++//! use flipper_rpc::{rpc::{res::Response, req::Request}, error::Result, transport::serial::rpc::SerialRpcTransport};
++//! use flipper_rpc::transport::Transport;
++//!
++//! # fn main() -> Result<()> {
+ //! let mut cli = SerialRpcTransport::new("/dev/ttyACM0".to_string())?;
+ //!
+-//! let resp = cli.send_and_recieve(RpcRequest::Ping(vec![1, 2, 3, 4]))?; // or send_raw for raw proto messages!
++//! let resp = cli.send_and_receive(Request::Ping(vec![1, 2, 3, 4]))?; // or send_raw for raw proto messages!
+ //!
+-//! asserteq!(resp, RpcResponse::Ping(vec![1, 2, 3, 4]));
++//! assert_eq!(resp, Response::Ping(vec![1, 2, 3, 4]));
+ //! # Ok(())
+ //! # }
+ //! ```
++use crate::error::{Error, Result};
++use crate::logging::{debug, trace};
+ use crate::{
+     proto,
+-    rpc::{RpcRequest, RpcResponse},
+     transport::{
+-        Transport, TransportRaw,
++        TransportRaw,
+         serial::{
+             FLIPPER_BAUD,
+-            helpers::{drain_until, drain_until_str, varint_length},
++            helpers::{drain_until, drain_until_str},
+         },
+     },
+ };
+-use log::{debug, trace};
+ use prost::Message;
+ use serialport::SerialPort;
+-use std::{io, time::Duration};
++use std::time::Duration;
+ 
+ /// A transport that sends RPC messages on a port
+ ///
+ /// # Examples
+ ///
+ /// ```no_run
+-/// # fn main() -> std::io::Result<()> {
++/// use flipper_rpc::transport::serial::rpc::SerialRpcTransport;
++/// use flipper_rpc::rpc::{req::Request, res::Response};
++/// use flipper_rpc::error::Result;
++/// use flipper_rpc::transport::Transport;
++///
++/// # fn main() -> Result<()> {
+ /// let mut cli = SerialRpcTransport::new("/dev/ttyACM0".to_string())?;
+ ///
+-/// let resp = cli.send_and_recieve(RpcRequest::Ping(vec![1, 2, 3, 4]))?; // or send_raw for raw proto messages!
++/// let resp = cli.send_and_receive(Request::Ping(vec![1, 2, 3, 4]))?; // or send_raw for raw proto messages!
+ ///
+-/// asserteq!(resp, RpcResponse::Ping(vec![1, 2, 3, 4]));
++/// assert_eq!(resp, Response::Ping(vec![1, 2, 3, 4]));
+ /// # Ok(())
+ /// # }
+ /// ```
+@@ -61,13 +69,18 @@ impl SerialRpcTransport {
+     /// # Examples
+     ///
+     /// ```no_run
+-    /// # fn main() -> std::io::Result<()> {
++    /// use flipper_rpc::{error::Result, transport::serial::rpc::SerialRpcTransport};
++    ///
++    /// # fn main() -> Result<()> {
++    ///
+     /// let mut cli = SerialRpcTransport::new("/dev/ttyACM0".to_string())?;
++    ///
+     /// # Ok(())
+     /// # }
+     /// ```
+-    pub fn new(port: String) -> Result<Self, io::Error> {
+-        let mut port = serialport::new(port, FLIPPER_BAUD)
++    #[cfg_attr(feature = "tracing", tracing::instrument)]
++    pub fn new<S: AsRef<str> + std::fmt::Debug>(port: S) -> Result<Self> {
++        let mut port = serialport::new(port.as_ref(), FLIPPER_BAUD)
+             .timeout(Duration::from_secs(2))
+             .open()?;
+ 
+@@ -91,7 +104,8 @@ impl SerialRpcTransport {
+     /// WARN: Does not reconfigure the port, just passes it into the internal holder, you must make
+     /// sure that the port is in an RPC session. To convert a SerialCliTransport into
+     /// a SerialRpcTransport, use SerialCliTransport::into_rpc(self) instead.
+-    pub fn from_port(port: Box<dyn SerialPort>) -> Result<Self, io::Error> {
++    #[cfg_attr(feature = "tracing", tracing::instrument)]
++    pub fn from_port(port: Box<dyn SerialPort>) -> Result<Self> {
+         Ok(Self {
+             command_index: 0,
+             port,
+@@ -100,12 +114,12 @@ impl SerialRpcTransport {
+ }
+ 
+ impl TransportRaw<proto::Main> for SerialRpcTransport {
+-    type Err = io::Error;
++    type Err = Error;
+ 
+     /// Sends a length-delimited Protobuf RPC message to the Flipper.
+     ///
+     /// The internal command counter is used to set `command_id` on the message, whatever value is
+-    /// set in `rpc` will be overwritten
++    /// set in `value` will be overwritten
+     ///
+     /// # Errors
+     ///
+@@ -114,17 +128,24 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
+     /// # Examples
+     ///
+     /// ```no_run
++    /// use flipper_rpc::proto;
++    /// use flipper_rpc::proto::CommandStatus;
++    /// use flipper_rpc::proto::main::Content;
++    /// use flipper_rpc::proto::system;
++    /// use flipper_rpc::transport::serial::rpc::SerialRpcTransport;
++    /// use flipper_rpc::transport::TransportRaw;
++    /// use flipper_rpc::error::Result;
+     ///
+-    /// # fn main() -> std::io::Result<()> {
++    /// # fn main() -> Result<()> {
+     ///
+-    /// let cli = SerialRpcTransport::new("/dev/ttyACM0".to_string())?;
++    /// let mut cli = SerialRpcTransport::new("/dev/ttyACM0")?;
+     ///
+     /// let ping = proto::Main {
+     /// command_id: 0,
+     ///     command_status: proto::CommandStatus::Ok.into(),
+     ///     has_next: false,
+     ///     content: Some(proto::main::Content::SystemPingRequest(
+-    ///         proto::system::PingRequest {
++    ///         system::PingRequest {
+     ///             data: vec![0xDE, 0xAD, 0xBE, 0xEF],
+     ///         },
+     ///     )),
+@@ -134,17 +155,25 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
+     /// # Ok(())
+     /// # }
+     /// ```
+-    fn send_raw(&mut self, value: proto::Main) -> Result<(), Self::Err> {
++    #[cfg_attr(feature = "tracing", tracing::instrument)]
++    fn send_raw(&mut self, mut value: proto::Main) -> std::result::Result<(), Self::Err> {
+         trace!("send_rpc_proto");
++        debug!("command index: {}", self.command_index);
++
++        value.command_id = self.command_index;
+ 
+-        debug!("Encoding RPC");
+         let encoded = value.encode_length_delimited_to_vec();
+-        debug!("Writing RPC");
+         self.port.write_all(&encoded)?;
+ 
+         self.port.flush()?;
+ 
+-        self.command_index = self.command_index.wrapping_add(1);
++        // Command streams of has_next for chunked data MUST share the same command ID. The entire
++        // chain must have it. This will inc after data is sent and the chain will have the same id
++        // for all
++        if !value.has_next {
++            self.command_index = self.command_index.wrapping_add(1);
++        }
++
+         Ok(())
+     }
+ 
+@@ -162,12 +191,25 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
+     /// # Examples
+     ///
+     /// ```no_run
+-    /// let response = cli.recieve_raw()?;
++    /// use flipper_rpc::transport::serial::rpc::SerialRpcTransport;
++    /// use flipper_rpc::error::Result;
++    /// use flipper_rpc::transport::TransportRaw;
++    ///
++    /// # fn main() -> Result<()> {
++    /// let mut cli = SerialRpcTransport::new("/dev/ttyACM0".to_string())?;
++    /// let response = cli.receive_raw()?;
++    /// # Ok(())
++    /// # }
+     /// ```
+-    #[cfg(feature = "optimized-proto-reading")]
+-    fn receive_raw(&mut self) -> Result<proto::Main, Self::Err> {
++    #[cfg_attr(feature = "tracing", tracing::instrument)]
++    #[cfg(feature = "serial-optimized-varint-reading")]
++    fn receive_raw(&mut self) -> std::result::Result<proto::Main, Self::Err> {
+         use prost::bytes::Buf;
+ 
++        use crate::transport::serial::helpers::varint_length;
++
++        self.port.flush()?;
++
+         trace!("read_rpc_proto");
+ 
+         trace!("optimized-2shot-read");
+@@ -187,7 +229,7 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
+         // still read only once if it doesn't fail
+ 
+         // Error-prone code
+-        // ```rs
++        // ```no_run
+         // let read = self.port.read(&mut buf)?;
+         // ```
+         //
+@@ -205,7 +247,7 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
+                     read += n
+                 }
+                 Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => break,
+-                Err(e) => return Err(e),
++                Err(e) => return Err(e.into()),
+             }
+         }
+ 
+@@ -213,7 +255,8 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
+             return Err(std::io::Error::new(
+                 std::io::ErrorKind::UnexpectedEof,
+                 "no data read, failed to parse varint",
+-            ));
++            )
++            .into());
+         }
+ 
+         debug!("Decoding data length");
+@@ -300,14 +343,17 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
+     /// This method issues up to 11 syscalls but and relies on only heap buffers.
+     /// Opt to use read_rpc_proto when possible
+     /// NOTE: Optimized method disabled
+-    #[cfg(not(feature = "optimized-proto-reading"))]
++    #[cfg(not(feature = "serial-optimized-varint-reading"))]
++    #[cfg_attr(feature = "tracing", tracing::instrument)]
+     fn receive_raw(&mut self) -> Result<proto::Main, Self::Err> {
+         trace!("bytewise-read");
+         // NOTE: Comapred to the one above, this looks stupid and shitty. It makes a maximum of 11
+         // syscalls, with a minimum of 2. 11 for large messages and 2 for messages < 127 bytes.
+         // It also only relies on the heap
+         //
+-        // Useful for less-complex things but otherwise use the other version
++        // Useful for less-complex and very small transfers. Otherwise use the other version
++
++        self.port.flush()?;
+ 
+         let mut buf = Vec::with_capacity(10);
+         let mut byte = [0u8; 1];
+@@ -329,31 +375,3 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
+         Ok(main)
+     }
+ }
+-
+-impl Transport<RpcRequest, Option<RpcResponse>> for SerialRpcTransport {
+-    type Err = io::Error;
+-
+-    fn send(&mut self, req: RpcRequest) -> Result<(), Self::Err> {
+-        let proto = req.into_rpc(self.command_index, false);
+-
+-        self.send_raw(proto)?;
+-
+-        self.command_index = self.command_index.wrapping_add(1);
+-
+-        Ok(())
+-    }
+-
+-    /// Recieves a RPC reponse. Returns None if the response is Empty
+-    fn receive(&mut self) -> Result<Option<RpcResponse>, Self::Err> {
+-        let response = self.receive_raw()?;
+-
+-        let rpc = response.into();
+-
+-        let rpc = match rpc {
+-            RpcResponse::Empty => None,
+-            _ => Some(rpc),
+-        };
+-
+-        Ok(rpc)
+-    }
+-}

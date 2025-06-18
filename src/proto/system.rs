@@ -16,17 +16,7 @@ pub struct RebootRequest {
 }
 /// Nested message and enum types in `RebootRequest`.
 pub mod reboot_request {
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum RebootMode {
         /// default value
@@ -131,17 +121,7 @@ pub struct UpdateResponse {
 }
 /// Nested message and enum types in `UpdateResponse`.
 pub mod update_response {
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum UpdateResultCode {
         Ok = 0,
