@@ -18,7 +18,7 @@ memchr = { version = "2.7.4", optional = true }
 
 # Transport
 md5 = { version = "0.7.0", optional = true }
-prost = { version = "0.14.1", git = "https://github.com/tokio-rs/prost", branch = "master", optional = true }
+prost = { version = "0.13.5", optional = true }
 
 # Errors & Logging
 thiserror = "2.0.12"
