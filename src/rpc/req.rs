@@ -14,7 +14,8 @@ use crate::proto::gui::{
 use crate::proto::property::GetRequest;
 use crate::proto::storage::MkdirRequest;
 use crate::proto::system::{
-    DeviceInfoRequest, FactoryResetRequest, PingRequest, RebootRequest, SetDateTimeRequest,
+    DeviceInfoRequest, FactoryResetRequest, PingRequest, PlayAudiovisualAlertRequest,
+    ProtobufVersionRequest, RebootRequest, SetDateTimeRequest,
 };
 use crate::proto::{
     self, CommandStatus,
@@ -34,6 +35,7 @@ use crate::proto::{
 /// Wrapper around proto::Main tailored for requests. Can be turned into a proto::Main by
 /// RcpRequest::into_rpc(self)
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Request {
     /// Stops the current RPC session, returning to a text cli
     StopSession,
@@ -51,7 +53,7 @@ pub enum Request {
     SystemSetDatetime(DateTime),
     /// Makes the sound effect in the mobile app when playing an alert. Flashes screen, buzzes, and
     /// makes a few beeps
-    SystemPlayAudiovisualAlert,
+    PlayAvAlert,
     /// Requests the device's protobuf version
     SystemProtobufVersion,
     /// Updates the device to a newer firmware type
@@ -171,12 +173,12 @@ impl Request {
                         datetime: Some(date_time),
                     })
                 }
-                Request::SystemPlayAudiovisualAlert => Content::SystemPlayAudiovisualAlertRequest(
-                    crate::proto::system::PlayAudiovisualAlertRequest {},
-                ),
-                Request::SystemProtobufVersion => Content::SystemProtobufVersionRequest(
-                    crate::proto::system::ProtobufVersionRequest {},
-                ),
+                Request::PlayAvAlert => {
+                    Content::SystemPlayAudiovisualAlertRequest(PlayAudiovisualAlertRequest {})
+                }
+                Request::SystemProtobufVersion => {
+                    Content::SystemProtobufVersionRequest(ProtobufVersionRequest {})
+                }
                 Request::SystemUpdate(update_req) => Content::SystemUpdateRequest(update_req),
                 Request::SystemPowerInfo => {
                     Content::SystemPowerInfoRequest(crate::proto::system::PowerInfoRequest {})

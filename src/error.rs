@@ -3,6 +3,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
+#[non_exhaustive] // This may and will change as the crate approaches stable 1.0.0
 /// Global error type for all rpc and io errors
 pub enum Error {
     #[error("io: {0}")]
@@ -28,6 +29,11 @@ pub enum Error {
     #[cfg(feature = "proto")]
     /// A protobuf encode error, based on prost::EncodeError
     ProtoEncode(#[from] prost::EncodeError),
+
+    #[error("mpsc: {0}")]
+    #[cfg(feature = "fs-progress-mpsc")]
+    /// MPSC Error in the storage module when using progress-mpsc
+    MpscSend(#[from] std::sync::mpsc::SendError<(usize, usize)>),
 }
 
 /// Result type based on error::Error

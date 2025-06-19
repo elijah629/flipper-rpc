@@ -123,6 +123,9 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     ///
     /// # Errors
     ///
+    /// Does NOT produce RPC errors based on command status. All sent commands default to Ok
+    /// status.
+    ///
     /// Returns an error if the message cannot be encoded or written to the port.
     ///
     /// # Examples
@@ -188,6 +191,9 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     ///
     /// Returns an error if no data is received, decoding fails, or IO operations fail.
     ///
+    /// Additionally, this command returns an error if the underlying RPC command fails with
+    /// a non-CommandStatus::Ok status code. It will be auto-converted into an Error
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -202,11 +208,11 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     /// # }
     /// ```
     #[cfg_attr(feature = "tracing", tracing::instrument)]
-    #[cfg(feature = "serial-optimized-varint-reading")]
+    #[cfg(feature = "_opt-varint")]
     fn receive_raw(&mut self) -> std::result::Result<proto::Main, Self::Err> {
         use prost::bytes::Buf;
 
-        use crate::transport::serial::helpers::varint_length;
+        use crate::{proto::CommandStatus, transport::serial::helpers::varint_length};
 
         self.port.flush()?;
 
@@ -331,7 +337,10 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
             }
         };
 
-        Ok(main)
+        // Should be a valid command status
+        CommandStatus::try_from(main.command_status)
+            .unwrap()
+            .into_result(main)
     }
 
     /// Reads a length-delimited Protobuf RPC message from the flipper. This must be called
@@ -342,16 +351,28 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     ///
     /// This method issues up to 11 syscalls but and relies on only heap buffers.
     /// Opt to use read_rpc_proto when possible
-    /// NOTE: Optimized method disabled
-    #[cfg(not(feature = "serial-optimized-varint-reading"))]
+    /// NOTE: Optimized method disabled. BAD IDEA UNLESS OPTIMIZED METHOS IS BROKEN FOR USECASE
+    ///
+    /// **Deprecated**: Prefer the [`serial-optimized-varint-reading`] feature.
+    #[cfg(not(feature = "_opt-varint"))]
     #[cfg_attr(feature = "tracing", tracing::instrument)]
+    #[deprecated(
+        note = "Use the serial-optimized-varint-reading instead. This function is very slow. Only use when optimized method is broken. Please submit a PR/Issue to GH if it is broken.",
+        since = "0.4.0"
+    )]
     fn receive_raw(&mut self) -> Result<proto::Main, Self::Err> {
         trace!("bytewise-read");
         // NOTE: Comapred to the one above, this looks stupid and shitty. It makes a maximum of 11
         // syscalls, with a minimum of 2. 11 for large messages and 2 for messages < 127 bytes.
         // It also only relies on the heap
         //
-        // Useful for less-complex and very small transfers. Otherwise use the other version
+        // ~~Useful for less-complex and very small transfers. Otherwise use the other version~~
+        // EDIT: Not useful at all, I did many benchmarks and this lost 80% of the time. It only
+        // won (tied) when it had a single byte varint, and that was only due to caching. This is
+        // a bad function.
+        //
+        // Included for compatablity in case the improved function breaks, the user can fallback to
+        // this while they wait for their issue to be resolved through gh
 
         self.port.flush()?;
 
@@ -372,6 +393,9 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
 
         let main = proto::Main::decode(msg_buf.as_slice())?;
 
-        Ok(main)
+        // Should be a valid command status
+        CommandStatus::try_from(main.command_status)
+            .unwrap()
+            .into_result(main)
     }
 }

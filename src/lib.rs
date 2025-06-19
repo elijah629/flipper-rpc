@@ -4,26 +4,10 @@
 
 //! `flipper-rpc` is a Rust library for sending and receiving RPC messages to and
 //! from a Flipper Zero over a serial connection.
+//!
 //! ## Usage
-//! ```no_run
-//! use flipper_rpc::{
-//!    error::Result,
-//!    rpc::req::Request,
-//!    transport::{Transport, serial::{list_flipper_ports, rpc::SerialRpcTransport}},
-//! };
 //!
-//! # fn main() -> Result<()> {
-//!    let ports = list_flipper_ports()?;
-//!
-//!    let port = &ports[0].port_name;
-//!
-//!    let mut cli = SerialRpcTransport::new(port.to_string())?;
-//!
-//!    let _ = cli.send_and_receive(Request::SystemPlayAudiovisualAlert)?;
-//!
-//! # Ok(())
-//! # }
-//! ```
+//! Cannot be described here, please see each submodule for examples as they all depend on features not available here.
 
 // I don't have the time to write docs for auto-generated things
 #[cfg(feature = "proto")]
@@ -36,8 +20,8 @@ pub mod logging;
 #[cfg(feature = "easy-rpc")]
 pub mod rpc;
 
-#[cfg(feature = "storage")]
-pub mod storage;
+#[cfg(feature = "fs-any")]
+pub mod fs;
 
 #[cfg(feature = "transport-any")]
 pub mod transport;

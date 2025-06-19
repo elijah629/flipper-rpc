@@ -1,5 +1,7 @@
 //! Response type. Maps all Content's ending with "Response"
 
+use std::borrow::Cow;
+
 use crate::proto::app::{AppStateResponse, GetErrorResponse, LockStatusResponse};
 use crate::proto::desktop::Status;
 use crate::proto::gpio::{GetOtgModeResponse, GetPinModeResponse, ReadPinResponse};
@@ -90,6 +92,7 @@ define_into_enum! {
     /// Wrapper around proto::Main tailored for responses. Can be made from a proto::Main by
     /// Into/From
 #[derive(Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Response {
     Empty,
     Ping(Vec<u8>),
@@ -117,14 +120,17 @@ pub enum Response {
 }
 
 /// File read using fs_read / Request::StorageRead
+/// When handled by [`FlipperFs::fs_read`] this will error when Dir is a response to remain
+/// compatable with major fs apis
 #[derive(Debug, PartialEq)]
 pub enum ReadFile {
     /// Directory
     Dir,
-    /// File + Data and then MD5 Hash
-    File(Vec<u8>, String),
+    /// File data and then MD5 Hash
+    File(Cow<'static, [u8]>, String),
 }
 
+// Only extracts raw content, ignores errors
 impl From<proto::Main> for Response {
     fn from(val: proto::Main) -> Self {
         use Response::*;
@@ -146,7 +152,7 @@ impl From<proto::Main> for Response {
                 Content::StorageReadResponse(r) => {
                     // Will not be invalid data unless the flipper returns invalid data
                     StorageRead(r.file.map(|x| match FileType::try_from(x.r#type).unwrap() {
-                        FileType::File => ReadFile::File(x.data, x.md5sum),
+                        FileType::File => ReadFile::File(x.data.into(), x.md5sum),
                         FileType::Dir => ReadFile::Dir,
                     }))
                 }

@@ -4,7 +4,10 @@
 
 use thiserror::Error;
 
+use crate::{error::Result, proto::CommandStatus};
+
 #[derive(Error, Debug)]
+#[non_exhaustive]
 /// Generic error type for all RPC errors
 pub enum Error {
     #[error("command: {0}")]
@@ -25,6 +28,7 @@ pub enum Error {
 }
 
 #[derive(Error, Debug)]
+#[non_exhaustive]
 /// Command errors
 pub enum CommandError {
     /// Unknown error
@@ -48,6 +52,7 @@ pub enum CommandError {
 }
 
 #[derive(Error, Debug)]
+#[non_exhaustive]
 /// Storage errors
 pub enum StorageError {
     /// FS not ready
@@ -83,6 +88,7 @@ pub enum StorageError {
 }
 
 #[derive(Error, Debug)]
+#[non_exhaustive]
 /// Application errors
 pub enum ApplicationError {
     /// Can't start app - internal error
@@ -103,17 +109,19 @@ pub enum ApplicationError {
 }
 
 #[derive(Error, Debug)]
+#[non_exhaustive]
 /// Virtual Display errors
 pub enum VirtualDisplayError {
     /// Virtual Display session can't be started twice
     #[error("session already started (ERROR_VIRTUAL_DISPLAY_ALREADY_STARTED)")]
-    AreadyStarted,
+    AlreadyStarted,
     /// Virtual Display session can't be stopped when it's not started
     #[error("session not started (ERROR_VIRTUAL_DISPLAY_NOT_STARTED)")]
     NotStarted,
 }
 
 #[derive(Error, Debug)]
+#[non_exhaustive]
 /// GPIO errors
 pub enum GPIOError {
     /// Incorrect pin mode
@@ -122,4 +130,48 @@ pub enum GPIOError {
     /// Unknown pin mode
     #[error("unknown pin mode (ERROR_GPIO_UNKNOWN_PIN_MODE)")]
     UnknownMode,
+}
+
+impl CommandStatus {
+    /// Converts a CommandStatus and a value into a Result<T, Error> using the commandstatus as the
+    /// Err value and the value as the Ok value.
+    pub fn into_result<T>(self, value: T) -> Result<T> {
+        let result: std::result::Result<T, Error> = match self {
+            CommandStatus::Ok => Ok(value),
+            CommandStatus::Error => Err(CommandError::Unknown.into()),
+            CommandStatus::ErrorDecode => Err(CommandError::Decode.into()),
+            CommandStatus::ErrorNotImplemented => Err(CommandError::NotImplemented.into()),
+            CommandStatus::ErrorBusy => Err(CommandError::Busy.into()),
+            CommandStatus::ErrorContinuousCommandInterrupted => {
+                Err(CommandError::ContinuousCommandInterrupted.into())
+            }
+            CommandStatus::ErrorInvalidParameters => Err(CommandError::InvalidParameters.into()),
+            CommandStatus::ErrorStorageNotReady => Err(StorageError::NotReady.into()),
+            CommandStatus::ErrorStorageExist => Err(StorageError::AlreadyExists.into()),
+            CommandStatus::ErrorStorageNotExist => Err(StorageError::NotFound.into()),
+            CommandStatus::ErrorStorageInvalidParameter => {
+                Err(StorageError::InvalidParameter.into())
+            }
+            CommandStatus::ErrorStorageDenied => Err(StorageError::PermissionDenied.into()),
+            CommandStatus::ErrorStorageInvalidName => Err(StorageError::InvalidName.into()),
+            CommandStatus::ErrorStorageInternal => Err(StorageError::Internal.into()),
+            CommandStatus::ErrorStorageNotImplemented => Err(StorageError::NotImplemented.into()),
+            CommandStatus::ErrorStorageAlreadyOpen => Err(StorageError::AlreadyOpen.into()),
+            CommandStatus::ErrorStorageDirNotEmpty => Err(StorageError::DirectoryNotEmpty.into()),
+            CommandStatus::ErrorAppCantStart => Err(ApplicationError::CannotStart.into()),
+            CommandStatus::ErrorAppSystemLocked => Err(ApplicationError::SystemLocked.into()),
+            CommandStatus::ErrorAppNotRunning => Err(ApplicationError::RpcUnavailable.into()),
+            CommandStatus::ErrorAppCmdError => Err(ApplicationError::CommandExecution.into()),
+            CommandStatus::ErrorVirtualDisplayAlreadyStarted => {
+                Err(VirtualDisplayError::AlreadyStarted.into())
+            }
+            CommandStatus::ErrorVirtualDisplayNotStarted => {
+                Err(VirtualDisplayError::NotStarted.into())
+            }
+            CommandStatus::ErrorGpioModeIncorrect => Err(GPIOError::IncorrectMode.into()),
+            CommandStatus::ErrorGpioUnknownPinMode => Err(GPIOError::UnknownMode.into()),
+        };
+
+        result.map_err(Into::into)
+    }
 }

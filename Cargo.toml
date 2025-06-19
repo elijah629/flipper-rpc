@@ -1,6 +1,6 @@
 [package]
 name = "flipper-rpc"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 description = "Flipper Zero Remote Procedure Call Library (RPC) – A Rust 🦀 library enabling apps to remotely control a Flipper Zero device, similar to qFlipper. Built using the official Flipper Zero protobuf definitions."
 repository = "https://github.com/elijah629/flipper-rpc"
@@ -9,6 +9,7 @@ keywords = ["flipperzero", "rpc", "qflipper", "control", "flipper"]
 categories = ["encoding", "api-bindings", "development-tools"]
 readme = "README.md"
 license = "MIT"
+rust-version = "1.86.0"
 
 [dependencies]
 
@@ -18,7 +19,7 @@ memchr = { version = "2.7.4", optional = true }
 
 # Transport
 md5 = { version = "0.7.0", optional = true }
-prost = { version = "0.13.5", optional = true }
+prost = { version = "0.14.1", optional = true }
 
 # Errors & Logging
 thiserror = "2.0.12"
@@ -28,31 +29,42 @@ tracing = { version = "0.1.41", optional = true }
 default = ["minimal"]
 
 # Feature packs
-full = ["easy-rpc", "storage", "storage-check-md5", "transport-all"]
-minimal = ["proto"]
+full = ["fs-all", "transport-all"] # NOTE: Not recommended, please manually add the features you ACTUALLY need
+  minimal = ["proto"]
 
-# Base codec support, most users will want this as, well... this is what the crate provides
-proto = ["dep:prost"]
+easy-rpc = ["proto"] # Easy to use RPC wrapper to avoid manual construction of proto::Main's
+  proto = ["dep:prost"] # Base codec support
 
-easy-rpc = ["proto"] # Enables the easy to use RPC wrapper to avoid manual construction of proto::Main's
-storage = ["easy-rpc", "dep:md5"] # Enables FS wrapper. Depends on "easy" as it uses the easier APIs internally
-storage-check-md5 = ["storage"] # Verifies MD5 hashes from the flipper when reading. Will always calculate on write.
+# Filesystem wrappers
+fs-all = ["fs-read-verify", "fs-write", "fs-readdir", "fs-remove", "fs-createdir"]
+  fs-any = ["easy-rpc"] # Enables the fs wrapper module. By default no filesystem components are enabled. use fs-* for that.
+  fs-read = ["fs-any"] # Enables read support
+    fs-read-verify = ["fs-read", "dep:md5"] # Verifies MD5 hashes when reading
+  fs-write = ["fs-any", "dep:md5"] # Enables write support. Requires md5 crate to calculate hashes for the flipper to verify.
+    fs-progress-mpsc = ["fs-write"] # Simple progress reposting using MPSC channels on fs-write.
+  fs-readdir = [] # Enables the fs_read_dir api
+  fs-remove = [] # Enables the fs_remove api
+  fs-createdir = [] # Enables the fs_create_dir api
 
 # Transport
-transport-all = ["transport-serial-opt"] # Enables all transports
-transport-any = ["proto"] # Enables support for any transport, all transports require this.
+transport-all = ["transport-serial-optimized"] # Enables all transports
+  transport-any = ["proto"] # Enables support for any transport, all transports require this.
+  ## Serial
+  transport-serial = ["transport-any", "dep:serialport", "dep:memchr"] # Enables support for serial transport
+    transport-serial-optimized = ["transport-serial", "_opt-varint"]
 
-## Serial
-transport-serial = ["transport-any", "dep:serialport", "dep:memchr"] # Enables support for serial transport
-transport-serial-opt = ["transport-serial", "serial-optimized-varint-reading"]
-serial-optimized-varint-reading = [] # Uses a faster protobuf read method which only uses 2 syscalls and all stack memory! One of which is for the varint.
+# Internal modifiers, not to be used by other crates directly.
+_opt-varint = [] # Uses a faster protobuf read method which only uses 2 syscalls and all stack memory! One of which is for the varint.
 
 # Adds logging through tokio tracing
 tracing = ["dep:tracing"]
 
-[lib]
-path = "src/lib.rs"
+[[example]]
+name = "serial-av"
+path = "examples/serial/av.rs"
+required-features = ["transport-serial-optimized", "easy-rpc"]
 
-[[bin]]
-path = "src/bin.rs"
-name = "bin"
+[[example]]
+name = "serial-file"
+path = "examples/serial/file.rs"
+required-features = ["transport-serial-optimized", "fs-write", "fs-progress-mpsc"]

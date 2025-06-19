@@ -9,7 +9,11 @@ use std::{
 /// Drain a stream until a str + padding chunk
 ///
 /// Returns `Ok(())` if the str is found, or an error if timed out or another I/O issue occurs.
-pub fn drain_until_str<R: Read>(reader: &mut R, until_str: &str, timeout: Duration) -> Result<()> {
+pub(crate) fn drain_until_str<R: Read>(
+    reader: &mut R,
+    until_str: &str,
+    timeout: Duration,
+) -> Result<()> {
     assert!(!until_str.is_empty(), "until_str must not be empty");
 
     const CHUNK_SIZE: usize = 256;
@@ -68,7 +72,7 @@ pub fn drain_until_str<R: Read>(reader: &mut R, until_str: &str, timeout: Durati
 ///
 /// Loops over 1024 byte chunks (OK; since reading over the won't happen) until the reader reads
 /// 0 bytes or an error occurs.
-pub fn read_to_string_no_eof<R: Read>(reader: &mut R) -> Result<String> {
+pub(crate) fn read_to_string_no_eof<R: Read>(reader: &mut R) -> Result<String> {
     let mut buffer = Vec::new();
     let mut temp = [0; 1024];
 
@@ -87,7 +91,7 @@ pub fn read_to_string_no_eof<R: Read>(reader: &mut R) -> Result<String> {
 /// Drains a stream until a specific byte is found. Will read over by at most 256 bytes.
 ///
 /// Returns `Ok(()` if the byte is found, or an error if an I/O issue occurs.
-pub fn drain_until<R: Read>(reader: &mut R, delim: u8, timeout: Duration) -> Result<()> {
+pub(crate) fn drain_until<R: Read>(reader: &mut R, delim: u8, timeout: Duration) -> Result<()> {
     const CHUNK_SIZE: usize = 256;
 
     let mut buf = [0u8; CHUNK_SIZE];
@@ -115,20 +119,47 @@ pub fn drain_until<R: Read>(reader: &mut R, delim: u8, timeout: Duration) -> Res
 /// Returns the number of bytes used by the varint encoding of `value`.
 ///
 /// This does not allocate or write the varint, only computes its length.
-///
-/// # Examples
-/// ```
-/// use flipper_rpc::transport::serial::helpers::varint_length;
-///
-/// let len = varint_length(128);
-/// assert_eq!(len, 2);
-/// ```
 #[cfg_attr(feature = "tracing", tracing::instrument)]
-pub fn varint_length(mut value: usize) -> usize {
+pub(crate) fn varint_length(mut value: usize) -> usize {
     let mut len = 1;
     while value >= 0x80 {
         value >>= 7;
         len += 1;
     }
     len
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_varint_length() {
+        let tests = [
+            (0, 1),
+            (1, 1),
+            (127, 1),
+            (128, 2),
+            (16383, 2),
+            (16384, 3),
+            (2097151, 3),
+            (2097152, 4),
+            (268435455, 4),
+            (268435456, 5),
+            (34359738367, 5),
+            (34359738368, 6),
+            (4398046511103, 6),
+            (4398046511104, 7),
+            (562949953421311, 7),
+            (562949953421312, 8),
+            (72057594037927935, 8),
+            (72057594037927936, 9),
+            (922112023704109056, 9),
+            (usize::MAX - 1, 10),
+        ];
+
+        for (value, expected_len) in tests {
+            assert_eq!(varint_length(value), expected_len);
+        }
+    }
 }

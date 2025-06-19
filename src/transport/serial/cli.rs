@@ -1,6 +1,7 @@
 //! # Flipper Text CLI
 //!
 //! A `Transport` for communicating with Flipper Zero devices over a serial port using the text-based cli.
+//! Only use this for operations that cannot be done with RPC, as this is an innefecient and error-prone wrapper.
 //!
 //! ## Examples
 //!

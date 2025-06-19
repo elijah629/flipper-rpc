@@ -7,7 +7,7 @@ pub mod helpers;
 pub mod rpc;
 
 /// Baud rate for the flipper
-pub const FLIPPER_BAUD: u32 = 115_200;
+pub(crate) const FLIPPER_BAUD: u32 = 115_200;
 
 /// A flipper device. Contains port and device name;
 #[derive(Debug)]
