@@ -1,6 +1,6 @@
 [package]
 name = "flipper-rpc"
-version = "0.4.1"
+version = "0.5.0"
 edition = "2024"
 description = "Flipper Zero Remote Procedure Call Library (RPC) – A Rust 🦀 library enabling apps to remotely control a Flipper Zero device, similar to qFlipper. Built using the official Flipper Zero protobuf definitions."
 repository = "https://github.com/elijah629/flipper-rpc"
