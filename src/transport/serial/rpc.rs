@@ -56,6 +56,28 @@ pub struct SerialRpcTransport {
     port: Box<dyn SerialPort>,
 }
 
+/// Adds a command_index getter/setter. Useful since Transports dont automatically track command
+/// index, and these functions can directly interop with the Transport's governing RPC channel.
+pub trait CommandIndex {
+    /// Changes the command index and returns the new value
+    fn increment_command_index(&mut self, by: u32) -> u32;
+
+    /// Gets the current command index
+    fn command_index(&mut self) -> u32;
+}
+
+impl CommandIndex for SerialRpcTransport {
+    fn increment_command_index(&mut self, by: u32) -> u32 {
+        self.command_index += by;
+
+        self.command_index
+    }
+
+    fn command_index(&mut self) -> u32 {
+        self.command_index
+    }
+}
+
 impl SerialRpcTransport {
     /// Opens a new RPC session on the given serial port path.
     ///
@@ -113,10 +135,29 @@ impl SerialRpcTransport {
     }
 }
 
+impl proto::Main {
+    /// Sets the command id in a proto
+    pub fn with_command_id(mut self, command_id: u32) -> Self {
+        self.command_id = command_id;
+
+        self
+    }
+
+    /// Sets the has_next flag in a proto
+    pub fn with_has_next(mut self, has_next: bool) -> Self {
+        self.has_next = has_next;
+
+        self
+    }
+}
+
 impl TransportRaw<proto::Main> for SerialRpcTransport {
     type Err = Error;
 
     /// Sends a length-delimited Protobuf RPC message to the Flipper.
+    ///
+    /// NOTE: Does not change command_id, auto incrementing has been moved into the easy api. If
+    /// you need to change the command index, use [`CommandIndex::increment_command_index`]
     ///
     /// The internal command counter is used to set `command_id` on the message, whatever value is
     /// set in `value` will be overwritten
@@ -144,7 +185,7 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     /// let mut cli = SerialRpcTransport::new("/dev/ttyACM0")?;
     ///
     /// let ping = proto::Main {
-    /// command_id: 0,
+    ///     command_id: 0,
     ///     command_status: proto::CommandStatus::Ok.into(),
     ///     has_next: false,
     ///     content: Some(proto::main::Content::SystemPingRequest(
@@ -159,23 +200,13 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     /// # }
     /// ```
     #[cfg_attr(feature = "tracing", tracing::instrument)]
-    fn send_raw(&mut self, mut value: proto::Main) -> std::result::Result<(), Self::Err> {
+    fn send_raw(&mut self, value: proto::Main) -> std::result::Result<(), Self::Err> {
         trace!("send_rpc_proto");
-        debug!("command index: {}", self.command_index);
-
-        value.command_id = self.command_index;
 
         let encoded = value.encode_length_delimited_to_vec();
         self.port.write_all(&encoded)?;
 
         self.port.flush()?;
-
-        // Command streams of has_next for chunked data MUST share the same command ID. The entire
-        // chain must have it. This will inc after data is sent and the chain will have the same id
-        // for all
-        if !value.has_next {
-            self.command_index = self.command_index.wrapping_add(1);
-        }
 
         Ok(())
     }
@@ -351,9 +382,21 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     ///
     /// This method issues up to 11 syscalls but and relies on only heap buffers.
     /// Opt to use read_rpc_proto when possible
-    /// NOTE: Optimized method disabled. BAD IDEA UNLESS OPTIMIZED METHOS IS BROKEN FOR USECASE
+    /// NOTE: Optimized method disabled. BAD IDEA UNLESS OPTIMIZED METHOD IS BROKEN FOR USECASE
     ///
     /// **Deprecated**: Prefer the [`serial-optimized-varint-reading`] feature.
+    ///
+    /// NOTE: Comapred to the one above, this looks stupid and shitty. It makes a maximum of 11
+    /// syscalls, with a minimum of 2. 11 for large messages and 2 for messages < 127 bytes.
+    /// It also only relies on the heap
+    ///
+    /// ~~Useful for less-complex and very small transfers. Otherwise use the other version~~
+    /// EDIT: Not useful at all, I did many benchmarks and this lost 80% of the time. It only
+    /// won (tied) when it had a single byte varint, and that was only due to caching. This is
+    /// a bad function.
+    ///
+    /// Included for compatablity in case the improved function breaks, the user can fallback to
+    /// this while they wait for their issue to be resolved through gh
     #[cfg(not(feature = "_opt-varint"))]
     #[cfg_attr(feature = "tracing", tracing::instrument)]
     #[deprecated(
@@ -362,29 +405,20 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     )]
     fn receive_raw(&mut self) -> Result<proto::Main, Self::Err> {
         trace!("bytewise-read");
-        // NOTE: Comapred to the one above, this looks stupid and shitty. It makes a maximum of 11
-        // syscalls, with a minimum of 2. 11 for large messages and 2 for messages < 127 bytes.
-        // It also only relies on the heap
-        //
-        // ~~Useful for less-complex and very small transfers. Otherwise use the other version~~
-        // EDIT: Not useful at all, I did many benchmarks and this lost 80% of the time. It only
-        // won (tied) when it had a single byte varint, and that was only due to caching. This is
-        // a bad function.
-        //
-        // Included for compatablity in case the improved function breaks, the user can fallback to
-        // this while they wait for their issue to be resolved through gh
 
         self.port.flush()?;
 
-        let mut buf = Vec::with_capacity(10);
-        let mut byte = [0u8; 1];
+        let mut buf = [0u8; 10];
+        let mut index = 0;
 
-        loop {
-            self.port.read_exact(&mut byte)?;
-            buf.push(byte[0]);
-            if byte[0] & 0x80 == 0 {
+        while index < 10 {
+            self.port.read_exact(&mut buf[index..=index])?;
+
+            if buf[index] & 0x80 == 0 {
                 break;
             }
+
+            index += 1;
         }
 
         let len = prost::decode_length_delimiter(buf.as_slice())?;

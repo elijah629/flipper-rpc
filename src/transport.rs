@@ -1,7 +1,7 @@
 //! Generic transport traits
 
 #[cfg(feature = "easy-rpc")]
-use crate::error::Error;
+use crate::{error::Error, transport::serial::rpc::CommandIndex};
 use crate::{
     proto,
     rpc::{req::Request, res::Response},
@@ -65,13 +65,25 @@ pub trait TransportRaw<Send, Recv = Send> {
 // converted into Rpc-style messages and used through the easy API.
 impl<T> Transport<Request, Response> for T
 where
-    T: TransportRaw<proto::Main, proto::Main, Err = Error> + std::fmt::Debug,
+    T: TransportRaw<proto::Main, proto::Main, Err = Error> + CommandIndex + std::fmt::Debug,
 {
     type Err = T::Err;
 
+    /// Sends an easy-rpc Request and auto-increments command_id
+    ///
+    /// This is what most users will want, unless they are manually dealing with muti-part
+    /// messages, this is much easier than any alternative.
     #[cfg_attr(feature = "tracing", tracing::instrument)]
     fn send(&mut self, req: Request) -> Result<(), Self::Err> {
-        let proto = req.into_rpc(false);
+        // Command streams of has_next for chunked data MUST share the same command ID. The entire
+        // chain must have it. This will inc after data is sent and the chain will have the same id
+        // for all
+
+        let command_id = self.command_index(); // Get current index, guaranteed fresh.
+
+        let proto = req.into_rpc(command_id); // Send the proto with the current index
+
+        self.increment_command_index(1); // Update the index for next use
 
         self.send_raw(proto)?;
 

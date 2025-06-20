@@ -2,7 +2,7 @@ use std::sync::mpsc::channel;
 
 use flipper_rpc::{
     error::Result,
-    fs::{FsReadDir, FsRemove, FsWrite},
+    fs::{FsMetadata, FsRead, FsReadDir, FsRemove, FsWrite},
     transport::serial::{list_flipper_ports, rpc::SerialRpcTransport},
 };
 
@@ -23,13 +23,16 @@ fn main() -> Result<()> {
         }
     });
 
-    cli.fs_write("/ext/file.txt", [65; 512 * 5], tx)?;
+    let data = (0..512 * 10).map(|i| (i / 512) as u8).collect::<Vec<_>>();
+    cli.fs_write("/ext/file2.txt", data, tx)?;
 
     handle.join().unwrap();
 
-    cli.fs_remove("/ext/file.txt", false)?;
+    println!("{:?}", cli.fs_metadata("/ext/file2.txt")?);
+    println!("{:?}", cli.fs_read("/ext/file2.txt")?.len());
+    println!("{:?}", cli.fs_read_dir("/ext/subghz")?.collect::<Vec<_>>());
 
-    println!("{:?}", cli.fs_read_dir("/ext")?.collect::<Vec<_>>());
+    cli.fs_remove("/ext/file2.txt", false)?;
 
     Ok(())
 }

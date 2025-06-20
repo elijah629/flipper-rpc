@@ -1,18 +1,18 @@
 //! FsWrite module
 
-#[cfg(feature = "fs-progress-mpsc")]
+use std::path::Path;
+#[cfg(feature = "fs-write-progress-mpsc")]
 use std::sync::mpsc::Sender;
-use std::{ffi::OsStr, path::Path};
 
 use crate::{
     error::{Error, Result},
-    fs::CHUNK_SIZE,
+    fs::{CHUNK_SIZE, helpers::os_str_to_str},
     proto::{
         self,
         storage::{File, WriteRequest, file::FileType},
     },
     rpc::req::Request,
-    transport::TransportRaw,
+    transport::{TransportRaw, serial::rpc::CommandIndex},
 };
 
 /// Write traits for flipper filesystem
@@ -22,19 +22,19 @@ pub trait FsWrite {
         &mut self,
         path: impl AsRef<Path>,
         data: impl AsRef<[u8]>,
-        #[cfg(feature = "fs-progress-mpsc")] tx: Sender<(usize, usize)>,
+        #[cfg(feature = "fs-write-progress-mpsc")] tx: Sender<(usize, usize)>,
     ) -> Result<()>;
 }
 
 impl<T> FsWrite for T
 where
-    T: TransportRaw<proto::Main, proto::Main, Err = Error> + std::fmt::Debug,
+    T: TransportRaw<proto::Main, proto::Main, Err = Error> + CommandIndex + std::fmt::Debug,
 {
     fn fs_write(
         &mut self,
         path: impl AsRef<Path>,
         data: impl AsRef<[u8]>,
-        #[cfg(feature = "fs-progress-mpsc")] tx: Sender<(usize, usize)>,
+        #[cfg(feature = "fs-write-progress-mpsc")] tx: Sender<(usize, usize)>,
     ) -> Result<()> {
         let path = path.as_ref();
 
@@ -52,14 +52,16 @@ where
         let chunks = chunks_or_empty(data, CHUNK_SIZE);
         let total_chunks = chunks.len();
 
-        #[cfg(feature = "fs-progress-mpsc")]
+        #[cfg(feature = "fs-write-progress-mpsc")]
         let total_data = data.len();
 
-        #[cfg(feature = "fs-progress-mpsc")]
+        #[cfg(feature = "fs-write-progress-mpsc")]
         let mut sent = 0;
 
-        #[cfg(feature = "fs-progress-mpsc")]
+        #[cfg(feature = "fs-write-progress-mpsc")]
         tx.send((sent, total_data))?;
+
+        let command_id = self.command_index();
 
         for (i, chunk) in chunks.enumerate() {
             let has_next = i != total_chunks - 1; // If this is not the last chunk, it has another.
@@ -74,7 +76,8 @@ where
                     md5sum: format!("{:x}", md5::compute(chunk)),
                 }),
             })
-            .into_rpc(has_next);
+            .into_rpc(command_id)
+            .with_has_next(has_next);
 
             if has_next {
                 self.send_raw(write_req)?;
@@ -82,22 +85,17 @@ where
                 self.send_and_receive_raw(write_req)?;
             }
 
-            #[cfg(feature = "fs-progress-mpsc")]
+            #[cfg(feature = "fs-write-progress-mpsc")]
             {
                 sent += chunk.len();
                 tx.send((sent, total_data))?;
             }
         }
 
+        self.increment_command_index(1);
+
         Ok(())
     }
-}
-
-#[inline(always)]
-fn os_str_to_str(path: &OsStr) -> Result<&str> {
-    path.to_str().ok_or_else(|| {
-        std::io::Error::new(std::io::ErrorKind::InvalidData, "Path is not UTF-8").into()
-    })
 }
 
 #[inline(always)]

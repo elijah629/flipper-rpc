@@ -9,7 +9,7 @@ use crate::proto::gui::ScreenFrame;
 use crate::proto::main::Content;
 use crate::proto::property::GetResponse;
 use crate::proto::storage::file::FileType;
-use crate::proto::storage::{InfoResponse, Md5sumResponse, StatResponse, TimestampResponse};
+use crate::proto::storage::{InfoResponse, Md5sumResponse, TimestampResponse};
 use crate::proto::system::{
     DeviceInfoResponse, PowerInfoResponse, ProtobufVersionResponse, UpdateResponse,
 };
@@ -50,7 +50,7 @@ macro_rules! define_into_impl {
                     x => Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
                         format!(
-                            "Cannot convert {x:?} into a  {}",
+                            "Cannot convert {x:?} into a {}",
                             stringify!($enum_name::$variant)
                         ),
                     )
@@ -103,9 +103,9 @@ pub enum Response {
     SystemPowerInfo(PowerInfoResponse),
     StorageInfo(InfoResponse),
     StorageTimestamp(TimestampResponse),
-    StorageStat(StatResponse),
+    StorageStat(Option<u32>),
     StorageList(Vec<ReadDirItem>),
-    StorageRead(Option<ReadFile>),
+    StorageRead(Option<Cow<'static, [u8]>>),
     StorageMd5sum(Md5sumResponse),
     AppLockStatus(LockStatusResponse),
     AppGetError(GetErrorResponse),
@@ -119,24 +119,13 @@ pub enum Response {
 }
 }
 
-/// Item read using fs_read / Request::StorageRead
-/// When handled by [`FlipperFs::fs_read`] this will error when Dir is a response to remain
-/// compatable with major fs apis
-#[derive(Debug, PartialEq)]
-pub enum ReadFile {
-    /// Directory
-    Dir,
-    /// File data, size, and then MD5 Hash
-    File(Cow<'static, [u8]>, u32, String),
-}
-
 /// Item read using fs_read_dir / Request::StorageList
 #[derive(Debug, PartialEq)]
 pub enum ReadDirItem {
-    /// Directory
-    Dir,
-    /// File size and then MD5 Hash
-    File(u32, String),
+    /// Directory + Name
+    Dir(String),
+    /// Name, File size, MD5 Hash
+    File(String, u32, String),
 }
 
 // Only extracts raw content, ignores errors
@@ -144,7 +133,6 @@ impl From<proto::Main> for Response {
     fn from(val: proto::Main) -> Self {
         use Response::*;
         let content = val.content;
-
         match content {
             None | Some(Content::Empty(_)) => Empty,
             Some(x) => match x {
@@ -156,21 +144,23 @@ impl From<proto::Main> for Response {
                 Content::SystemPowerInfoResponse(r) => SystemPowerInfo(r),
                 Content::StorageInfoResponse(r) => StorageInfo(r),
                 Content::StorageTimestampResponse(r) => StorageTimestamp(r),
-                Content::StorageStatResponse(r) => StorageStat(r),
+                Content::StorageStatResponse(r) => StorageStat(r.file.map(|x| x.size)),
                 Content::StorageListResponse(r) => StorageList(
                     r.file
                         .into_iter()
                         .map(|file| match FileType::try_from(file.r#type).unwrap() {
-                            FileType::File => ReadDirItem::File(file.size, file.md5sum),
-                            FileType::Dir => ReadDirItem::Dir,
+                            FileType::File => ReadDirItem::File(file.name, file.size, file.md5sum),
+                            FileType::Dir => ReadDirItem::Dir(file.name),
                         })
                         .collect::<Vec<_>>(),
                 ),
                 Content::StorageReadResponse(r) => {
-                    // Will not be invalid data unless the flipper returns invalid data
+                    // Response would have returned an error if the requested path was a dir
+                    // As of now, reading does not return any data about the file besides the data.
+                    // No name/hash/size etc.
                     StorageRead(r.file.map(|x| match FileType::try_from(x.r#type).unwrap() {
-                        FileType::File => ReadFile::File(x.data.into(), x.size, x.md5sum),
-                        FileType::Dir => ReadFile::Dir,
+                        FileType::File => x.data.into(),
+                        FileType::Dir => unreachable!(),
                     }))
                 }
                 Content::StorageMd5sumResponse(r) => StorageMd5sum(r),

@@ -36,15 +36,18 @@ easy-rpc = ["proto"] # Easy to use RPC wrapper to avoid manual construction of p
   proto = ["dep:prost"] # Base codec support
 
 # Filesystem wrappers
-fs-all = ["fs-read-verify", "fs-write", "fs-readdir", "fs-remove", "fs-createdir"]
+fs-all = ["fs-write", "fs-readdir", "fs-read", "fs-read-metadata", "fs-metadata", "fs-remove", "fs-createdir"] # recommended settings and all fs apis
   fs-any = ["easy-rpc"] # Enables the fs wrapper module. By default no filesystem components are enabled. use fs-* for that.
   fs-read = ["fs-any"] # Enables read support
-    fs-read-verify = ["fs-read", "dep:md5"] # Verifies MD5 hashes when reading
+    fs-read-metadata = ["fs-read"] # Makes another RPC call when reading a file to determine the size of it. This saves on some memory allocation but introduces another RPC call.
+    fs-read-progress-mpsc = ["fs-read-metadata"] # Requests the size of the file using fs-read-metadata to create a progress channel
   fs-write = ["fs-any", "dep:md5"] # Enables write support. Requires md5 crate to calculate hashes for the flipper to verify.
-    fs-progress-mpsc = ["fs-write"] # Simple progress reposting using MPSC channels on fs-write.
+    fs-write-progress-mpsc = ["fs-write"] # Simple progress reposting using MPSC channels on fs-write.
   fs-readdir = [] # Enables the fs_read_dir api
   fs-remove = [] # Enables the fs_remove api
   fs-createdir = [] # Enables the fs_create_dir api
+  fs-metadata = [] # Enables the fs_metadata api
+  fs-progress-mpsc = ["fs-write-progress-mpsc", "fs-read-progress-mpsc"]
 
 # Transport
 transport-all = ["transport-serial-optimized"] # Enables all transports

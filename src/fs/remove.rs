@@ -2,8 +2,10 @@
 
 use std::path::Path;
 
+use crate::fs::helpers::os_str_to_str;
 use crate::proto::storage::DeleteRequest;
 use crate::transport::Transport;
+use crate::transport::serial::rpc::CommandIndex;
 use crate::{
     error::{Error, Result},
     proto,
@@ -19,16 +21,11 @@ pub trait FsRemove {
 
 impl<T> FsRemove for T
 where
-    T: TransportRaw<proto::Main, proto::Main, Err = Error> + std::fmt::Debug,
+    T: TransportRaw<proto::Main, proto::Main, Err = Error> + CommandIndex + std::fmt::Debug,
 {
+    #[doc(alias = "fs_rm")]
     fn fs_remove(&mut self, path: impl AsRef<Path>, recursive: bool) -> Result<()> {
-        let path = path
-            .as_ref()
-            .to_str()
-            .ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Path is not UTF-8")
-            })?
-            .to_string();
+        let path = os_str_to_str(path.as_ref().as_os_str())?.to_string();
 
         let rm_req = Request::StorageDelete(DeleteRequest { path, recursive });
 

@@ -12,7 +12,7 @@ use crate::proto::gui::{
     StopScreenStreamRequest, StopVirtualDisplayRequest,
 };
 use crate::proto::property::GetRequest;
-use crate::proto::storage::MkdirRequest;
+use crate::proto::storage::{MkdirRequest, StatRequest};
 use crate::proto::system::{
     DeviceInfoRequest, FactoryResetRequest, PingRequest, PlayAudiovisualAlertRequest,
     ProtobufVersionRequest, RebootRequest, SetDateTimeRequest,
@@ -26,8 +26,8 @@ use crate::proto::{
     },
     storage::{
         BackupCreateRequest, BackupRestoreRequest, DeleteRequest, InfoRequest, ListRequest,
-        Md5sumRequest, ReadRequest, RenameRequest, StatRequest, TarExtractRequest,
-        TimestampRequest, WriteRequest,
+        Md5sumRequest, ReadRequest, RenameRequest, TarExtractRequest, TimestampRequest,
+        WriteRequest,
     },
     system::{DateTime, UpdateRequest, reboot_request::RebootMode},
 };
@@ -56,7 +56,7 @@ pub enum Request {
     PlayAvAlert,
     /// Requests the device's protobuf version
     SystemProtobufVersion,
-    /// Updates the device to a newer firmware type
+    /// Updates the device to a newer firmware. DFU, .tgz, resource, etc.
     SystemUpdate(UpdateRequest),
     /// Requests power info
     SystemPowerInfo,
@@ -65,10 +65,11 @@ pub enum Request {
     /// Gets the timestamp of a path
     StorageTimestamp(TimestampRequest),
     /// Gets information about a file or directory
-    StorageStat(StatRequest),
+    StorageMetadata(String),
     /// Lists files in a directory
     StorageList(ListRequest),
     /// Reads a file
+    /// Will error with Storage.InvalidName if the path is a directory
     StorageRead(String),
     /// Writes to a file
     StorageWrite(WriteRequest),
@@ -77,15 +78,15 @@ pub enum Request {
     /// Creates a new directory
     StorageMkdir(String),
     /// Asks the flipper zero to calculate the MD5 sum of a file. Processes on device
-    StorageMd5sum(Md5sumRequest),
-    /// Renames/moves a directory or file
-    StorageRename(RenameRequest),
+    StorageMd5sum(String),
+    /// Renames/moves a directory or file. (From, to)
+    StorageRename(String, String),
     /// Creates a local backup of the flipper's storage
-    StorageBackupCreate(BackupCreateRequest),
+    StorageBackupCreate(String),
     /// Restores from a local backup
-    StorageBackupRestore(BackupRestoreRequest),
-    /// Extracts a .tgz stored on the flipper
-    StorageTarExtract(TarExtractRequest),
+    StorageBackupRestore(String),
+    /// Extracts a .tgz stored on the flipper (tar, out)
+    StorageTarExtract(String, String),
     /// Opens an app
     AppStart(StartRequest),
     /// Checks weather an app is locked
@@ -144,14 +145,16 @@ impl Request {
     /// Creates a proto::Main from an RpcRequest
     ///
     /// Useful for actually sending the requests, as this is what the API expects. Does not error.
-    pub fn into_rpc(self, has_next: bool) -> proto::Main {
+    /// If command_id is None, it auto increments the command index.
+    pub fn into_rpc(self, command_id: u32) -> proto::Main {
         use proto::main::Content;
-
+        // Command streams of has_next for chunked data MUST share the same command ID. The entire
+        // chain must have it. This will inc after data is sent and the chain will have the same id
+        // for all
         proto::Main {
-            // command index WILL be overriden when sent through any transfer
-            command_id: 0,
+            command_id,
             command_status: CommandStatus::Ok.into(),
-            has_next,
+            has_next: false,
 
             // TODO: Implement user-friendly methods for all of these
             content: Some(match self {
@@ -185,17 +188,31 @@ impl Request {
                 }
                 Request::StorageInfo(req) => Content::StorageInfoRequest(req),
                 Request::StorageTimestamp(req) => Content::StorageTimestampRequest(req),
-                Request::StorageStat(req) => Content::StorageStatRequest(req),
+                Request::StorageMetadata(path) => Content::StorageStatRequest(StatRequest { path }),
                 Request::StorageList(req) => Content::StorageListRequest(req),
                 Request::StorageRead(path) => Content::StorageReadRequest(ReadRequest { path }),
                 Request::StorageWrite(req) => Content::StorageWriteRequest(req),
                 Request::StorageDelete(req) => Content::StorageDeleteRequest(req),
                 Request::StorageMkdir(path) => Content::StorageMkdirRequest(MkdirRequest { path }),
-                Request::StorageMd5sum(req) => Content::StorageMd5sumRequest(req),
-                Request::StorageRename(req) => Content::StorageRenameRequest(req),
-                Request::StorageBackupCreate(req) => Content::StorageBackupCreateRequest(req),
-                Request::StorageBackupRestore(req) => Content::StorageBackupRestoreRequest(req),
-                Request::StorageTarExtract(req) => Content::StorageTarExtractRequest(req),
+                Request::StorageMd5sum(path) => {
+                    Content::StorageMd5sumRequest(Md5sumRequest { path })
+                }
+                Request::StorageRename(from, to) => Content::StorageRenameRequest(RenameRequest {
+                    old_path: from,
+                    new_path: to,
+                }),
+                Request::StorageBackupCreate(archive_path) => {
+                    Content::StorageBackupCreateRequest(BackupCreateRequest { archive_path })
+                }
+                Request::StorageBackupRestore(archive_path) => {
+                    Content::StorageBackupRestoreRequest(BackupRestoreRequest { archive_path })
+                }
+                Request::StorageTarExtract(tar, out) => {
+                    Content::StorageTarExtractRequest(TarExtractRequest {
+                        tar_path: tar,
+                        out_path: out,
+                    })
+                }
 
                 Request::AppStart(req) => Content::AppStartRequest(req),
                 Request::AppLockStatus(req) => Content::AppLockStatusRequest(req),

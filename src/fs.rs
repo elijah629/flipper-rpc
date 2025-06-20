@@ -26,4 +26,11 @@ pub mod write;
 #[cfg(feature = "fs-write")]
 pub use write::FsWrite;
 
+#[cfg(feature = "fs-metadata")]
+pub mod metadata;
+#[cfg(feature = "fs-metadata")]
+pub use metadata::FsMetadata;
+
+pub mod helpers;
+
 pub(crate) const CHUNK_SIZE: usize = 512;

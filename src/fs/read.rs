@@ -3,8 +3,10 @@
 use std::borrow::Cow;
 use std::path::Path;
 
-use crate::rpc::res::{ReadFile, Response};
+use crate::fs::helpers::os_str_to_str;
+use crate::rpc::res::Response;
 use crate::transport::Transport;
+use crate::transport::serial::rpc::CommandIndex;
 use crate::{
     error::{Error, Result},
     proto,
@@ -57,62 +59,79 @@ pub trait FsRead {
     }
 }
 
+// NOTE: This API handles chunked responses for reading large files.
+// If the response is large enough, it will be split into multiple chunks, which we need to process iteratively.
+// To handle this, I re-implemented the command_index system and abstracted it into a trait ([`CommandIndex`]),
+// allowing remote calls from user functions to interact with it.
+//
+// IMPORTANT BEHAVIOR NOTES:
+// - For **reading**, you **do not need** a `command_id` or `has_next` flags to manage the operation.
+//   The read operation will continue until the `has_next` flag is `false`.
+// - However, for **writing**, the `command_id` and `has_next` flags **are required** to track the chunks.
+// - A read chain starts with a single request (`send`), and subsequent chunks are received until the `has_next` flag is `false`.
+// - This discovery came after some experimentation and insights from the `flipperzero_protobuf_py` library.
+//
+// TL;DR: Reads are simpler—just send one request and keep reading until `has_next` is `false`. Writes require
+// more coordination via `command_id` and `has_next`.
 impl<T> FsRead for T
 where
-    T: TransportRaw<proto::Main, proto::Main, Err = Error> + std::fmt::Debug,
+    T: TransportRaw<proto::Main, proto::Main, Err = Error> + CommandIndex + std::fmt::Debug,
 {
     fn fs_read(&mut self, path: impl AsRef<Path>) -> Result<Cow<'static, [u8]>> {
-        let path = path
-            .as_ref()
-            .to_str()
-            .ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::InvalidData, "Path is not UTF-8")
-            })?
-            .to_string();
+        // Convert the path to a string
+        let path = os_str_to_str(path.as_ref().as_os_str())?;
 
-        let response = self.send_and_receive(Request::StorageRead(path))?;
+        // Optionally fetch metadata if the "fs-read-metadata" feature is enabled
+        #[cfg(feature = "fs-read-metadata")]
+        let size: Option<u32> = self
+            .send_and_receive(Request::StorageMetadata(path.to_string()))?
+            .try_into()?;
 
-        match response {
-            Response::Empty | Response::StorageRead(Some(ReadFile::Dir)) => {
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::IsADirectory,
-                    "Cannot read a directory, use fs_read_dir instead.",
-                )
-                .into())
-            }
-            Response::StorageRead(None) => {
-                Err(std::io::Error::new(std::io::ErrorKind::Other, "Failed to read file").into())
-            }
-            Response::StorageRead(Some(ReadFile::File(data, size, actual))) => {
-                #[cfg(feature = "fs-read-verify")]
-                {
-                    let length = data.len() as u32;
+        // Initialize buffer for storing the file contents
+        #[cfg(feature = "fs-read-metadata")]
+        let mut buf = match size {
+            Some(size) => Vec::with_capacity(size as usize), // Pre-allocate buffer if size is known
+            None => Vec::new(),
+        };
 
-                    if length != size {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            format!("File size mismatch: expected {size}, only got {length}"),
-                        )
-                        .into());
-                    }
+        #[cfg(not(feature = "fs-read-metadata"))]
+        let mut buf = Vec::new(); // Default to an empty buffer if metadata isn't fetched
 
-                    let expected = format!("{:x}", md5::compute(&data));
+        // Send the initial request to start the read chain
+        self.send(Request::StorageRead(path.to_string()))?;
 
-                    if actual != expected {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            format!(
-                                "MD5 hash mismatch: expected {:02x?}, got {:02x?}",
-                                expected, actual
-                            ),
-                        )
-                        .into());
-                    }
+        loop {
+            // Receive the next chunk of data (raw response to check for has_next flag)
+            let response = self.receive_raw()?;
+
+            // Check if there are more chunks to read
+            let has_next = response.has_next;
+
+            // Convert the raw response into usable data (Cow<[u8]>)
+            let response: Option<Cow<'static, [u8]>> = Response::from(response).try_into()?;
+
+            match response {
+                // If no data was received, return an error
+                None => {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "Failed to read file",
+                    )
+                    .into());
                 }
-
-                Ok(data)
+                // Otherwise, add the data to the buffer
+                Some(data) => {
+                    buf.extend_from_slice(data.as_ref());
+                }
             }
-            _ => Err(std::io::Error::new(std::io::ErrorKind::Other, "Invalid response").into()),
+
+            // If this is the last chunk, stop reading
+            if !has_next {
+                break;
+            }
         }
+
+        // Return the entire contents as a Cow<[u8]> (static lifetime)
+        Ok(buf.into())
     }
 }
