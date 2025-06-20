@@ -9,7 +9,7 @@ use crate::proto::gui::ScreenFrame;
 use crate::proto::main::Content;
 use crate::proto::property::GetResponse;
 use crate::proto::storage::file::FileType;
-use crate::proto::storage::{File, InfoResponse, Md5sumResponse, StatResponse, TimestampResponse};
+use crate::proto::storage::{InfoResponse, Md5sumResponse, StatResponse, TimestampResponse};
 use crate::proto::system::{
     DeviceInfoResponse, PowerInfoResponse, ProtobufVersionResponse, UpdateResponse,
 };
@@ -104,7 +104,7 @@ pub enum Response {
     StorageInfo(InfoResponse),
     StorageTimestamp(TimestampResponse),
     StorageStat(StatResponse),
-    StorageList(Vec<File>),
+    StorageList(Vec<ReadDirItem>),
     StorageRead(Option<ReadFile>),
     StorageMd5sum(Md5sumResponse),
     AppLockStatus(LockStatusResponse),
@@ -119,15 +119,24 @@ pub enum Response {
 }
 }
 
-/// File read using fs_read / Request::StorageRead
+/// Item read using fs_read / Request::StorageRead
 /// When handled by [`FlipperFs::fs_read`] this will error when Dir is a response to remain
 /// compatable with major fs apis
 #[derive(Debug, PartialEq)]
 pub enum ReadFile {
     /// Directory
     Dir,
-    /// File data and then MD5 Hash
-    File(Cow<'static, [u8]>, String),
+    /// File data, size, and then MD5 Hash
+    File(Cow<'static, [u8]>, u32, String),
+}
+
+/// Item read using fs_read_dir / Request::StorageList
+#[derive(Debug, PartialEq)]
+pub enum ReadDirItem {
+    /// Directory
+    Dir,
+    /// File size and then MD5 Hash
+    File(u32, String),
 }
 
 // Only extracts raw content, ignores errors
@@ -148,11 +157,19 @@ impl From<proto::Main> for Response {
                 Content::StorageInfoResponse(r) => StorageInfo(r),
                 Content::StorageTimestampResponse(r) => StorageTimestamp(r),
                 Content::StorageStatResponse(r) => StorageStat(r),
-                Content::StorageListResponse(r) => StorageList(r.file),
+                Content::StorageListResponse(r) => StorageList(
+                    r.file
+                        .into_iter()
+                        .map(|file| match FileType::try_from(file.r#type).unwrap() {
+                            FileType::File => ReadDirItem::File(file.size, file.md5sum),
+                            FileType::Dir => ReadDirItem::Dir,
+                        })
+                        .collect::<Vec<_>>(),
+                ),
                 Content::StorageReadResponse(r) => {
                     // Will not be invalid data unless the flipper returns invalid data
                     StorageRead(r.file.map(|x| match FileType::try_from(x.r#type).unwrap() {
-                        FileType::File => ReadFile::File(x.data.into(), x.md5sum),
+                        FileType::File => ReadFile::File(x.data.into(), x.size, x.md5sum),
                         FileType::Dir => ReadFile::Dir,
                     }))
                 }

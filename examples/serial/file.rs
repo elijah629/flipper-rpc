@@ -2,7 +2,7 @@ use std::sync::mpsc::channel;
 
 use flipper_rpc::{
     error::Result,
-    fs::{FsRemove, FsWrite},
+    fs::{FsReadDir, FsRemove, FsWrite},
     transport::serial::{list_flipper_ports, rpc::SerialRpcTransport},
 };
 
@@ -28,6 +28,8 @@ fn main() -> Result<()> {
     handle.join().unwrap();
 
     cli.fs_remove("/ext/file.txt", false)?;
+
+    println!("{:?}", cli.fs_read_dir("/ext")?.collect::<Vec<_>>());
 
     Ok(())
 }

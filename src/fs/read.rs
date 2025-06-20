@@ -83,9 +83,19 @@ where
             Response::StorageRead(None) => {
                 Err(std::io::Error::new(std::io::ErrorKind::Other, "Failed to read file").into())
             }
-            Response::StorageRead(Some(ReadFile::File(data, actual))) => {
+            Response::StorageRead(Some(ReadFile::File(data, size, actual))) => {
                 #[cfg(feature = "fs-read-verify")]
                 {
+                    let length = data.len() as u32;
+
+                    if length != size {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!("File size mismatch: expected {size}, only got {length}"),
+                        )
+                        .into());
+                    }
+
                     let expected = format!("{:x}", md5::compute(&data));
 
                     if actual != expected {

@@ -2,13 +2,11 @@
 
 use std::path::Path;
 
+use crate::rpc::res::ReadDirItem;
 use crate::transport::Transport;
 use crate::{
     error::{Error, Result},
-    proto::{
-        self,
-        storage::{File, ListRequest},
-    },
+    proto::{self, storage::ListRequest},
     rpc::req::Request,
     transport::TransportRaw,
 };
@@ -16,14 +14,14 @@ use crate::{
 /// ReadDir traits for flipper filesystem
 pub trait FsReadDir {
     /// Lists the files in a directory at path
-    fn fs_read_dir(&mut self, path: impl AsRef<Path>) -> Result<Box<dyn Iterator<Item = File>>>;
+    fn fs_read_dir(&mut self, path: impl AsRef<Path>) -> Result<impl Iterator<Item = ReadDirItem>>;
 }
 
 impl<T> FsReadDir for T
 where
     T: TransportRaw<proto::Main, proto::Main, Err = Error> + std::fmt::Debug,
 {
-    fn fs_read_dir(&mut self, path: impl AsRef<Path>) -> Result<Box<dyn Iterator<Item = File>>> {
+    fn fs_read_dir(&mut self, path: impl AsRef<Path>) -> Result<impl Iterator<Item = ReadDirItem>> {
         let path = path
             .as_ref()
             .to_str()
@@ -34,15 +32,13 @@ where
 
         let req = Request::StorageList(ListRequest {
             path,
-            // not including MD5 here, as it is not practical to check against it when we don't
-            // have the file data
-            include_md5: false,
+            include_md5: true, // useful to have
             filter_max_size: 0,
         });
 
         let res = self.send_and_receive(req)?;
-        let res: Vec<File> = res.try_into()?;
+        let res: Vec<ReadDirItem> = res.try_into()?;
 
-        Ok(Box::new(res.into_iter()))
+        Ok(res.into_iter())
     }
 }
