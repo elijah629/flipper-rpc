@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use crate::fs::helpers::os_str_to_str;
-use crate::rpc::res::ReadDirItem;
+use crate::rpc::res::{ReadDirItem, Response};
 use crate::transport::Transport;
 use crate::transport::serial::rpc::CommandIndex;
 use crate::{
@@ -26,15 +26,30 @@ where
     fn fs_read_dir(&mut self, path: impl AsRef<Path>) -> Result<impl Iterator<Item = ReadDirItem>> {
         let path = os_str_to_str(path.as_ref().as_os_str())?.to_string();
 
-        let req = Request::StorageList(ListRequest {
+        let mut items = Vec::new();
+
+        // Send the initial request to start the chain
+        self.send(Request::StorageList(ListRequest {
             path,
             include_md5: true, // useful to have
             filter_max_size: 0,
-        });
+        }))?;
 
-        let res = self.send_and_receive(req)?;
-        let res: Vec<ReadDirItem> = res.try_into()?;
+        loop {
+            // Receive the next list items
+            let response = self.receive_raw()?;
+            let has_next = response.has_next;
 
-        Ok(res.into_iter())
+            // Convert the raw response into usable data (Vec<ReadDirItem>)
+            let chunk: Vec<ReadDirItem> = Response::from(response).try_into()?;
+            items.extend(chunk);
+
+            // If this is the last chunk, stop reading
+            if !has_next {
+                break;
+            }
+        }
+
+        Ok(items.into_iter())
     }
 }

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1
+
+- **fs** fix `fs_read_dir`. ReadDir now reads the full chain, it now exhibits
+  expected behavior.
+
 ## 0.5.0
 
 ### BREAKING CHANGES

@@ -30,7 +30,7 @@ fn main() -> Result<()> {
 
     println!("{:?}", cli.fs_metadata("/ext/file2.txt")?);
     println!("{:?}", cli.fs_read("/ext/file2.txt")?.len());
-    println!("{:?}", cli.fs_read_dir("/ext/subghz")?.collect::<Vec<_>>());
+    println!("{:?}", cli.fs_read_dir("/ext")?.collect::<Vec<_>>());
 
     cli.fs_remove("/ext/file2.txt", false)?;
 
