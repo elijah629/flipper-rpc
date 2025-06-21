@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1
+
+### Fixed
+
+- oopsy i put a println in the code
+
 ## 0.6.0
 
 ### BREAKING CHANGES

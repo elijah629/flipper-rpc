@@ -106,8 +106,6 @@ impl SerialRpcTransport {
             .timeout(TIMEOUT)
             .open()?;
 
-        println!("{:?}", port.timeout());
-
         debug!("Draining port until prompt");
         drain_until_str(&mut port, ">: ", TIMEOUT)?;
 
