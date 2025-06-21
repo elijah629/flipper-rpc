@@ -1,5 +1,7 @@
 //! Implementation for serial communication protocols
 
+use std::time::Duration;
+
 use crate::logging::debug;
 
 pub mod cli;
@@ -8,6 +10,10 @@ pub mod rpc;
 
 /// Baud rate for the flipper
 pub(crate) const FLIPPER_BAUD: u32 = 115_200;
+
+/// Global timeout for serial operations. Kinda large as large files may take a LONG time to
+/// process
+pub(crate) const TIMEOUT: Duration = Duration::from_secs(10);
 
 /// A flipper device. Contains port and device name;
 #[derive(Debug)]

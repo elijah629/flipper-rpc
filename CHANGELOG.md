@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.0
+
+### BREAKING CHANGES
+
+- **fs_read_dir** now asks if it should include the MD5 hash
+
+### Fixed
+
+- **serial** timeout error when reading large rpc messages. Increased timeout to
+  10 seconds.
+
+### Added
+
+- **serial** global serial timeout unified and increased to 10 seconds.
+- **fs** New md5 function
+
 ## 0.5.2
 
 - **rpc** fix the bytewise method of reading. Improper imports

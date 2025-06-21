@@ -106,7 +106,7 @@ pub enum Response {
     StorageStat(Option<u32>),
     StorageList(Vec<ReadDirItem>),
     StorageRead(Option<Cow<'static, [u8]>>),
-    StorageMd5sum(Md5sumResponse),
+    StorageMd5sum(String),
     AppLockStatus(LockStatusResponse),
     AppGetError(GetErrorResponse),
     GuiScreenFrame(ScreenFrame),
@@ -125,7 +125,7 @@ pub enum ReadDirItem {
     /// Directory + Name
     Dir(String),
     /// Name, File size, MD5 Hash
-    File(String, u32, String),
+    File(String, u32, Option<String>),
 }
 
 // Only extracts raw content, ignores errors
@@ -149,7 +149,15 @@ impl From<proto::Main> for Response {
                     r.file
                         .into_iter()
                         .map(|file| match FileType::try_from(file.r#type).unwrap() {
-                            FileType::File => ReadDirItem::File(file.name, file.size, file.md5sum),
+                            FileType::File => ReadDirItem::File(
+                                file.name,
+                                file.size,
+                                if file.md5sum.is_empty() {
+                                    None
+                                } else {
+                                    Some(file.md5sum)
+                                },
+                            ),
                             FileType::Dir => ReadDirItem::Dir(file.name),
                         })
                         .collect::<Vec<_>>(),
@@ -163,7 +171,7 @@ impl From<proto::Main> for Response {
                         FileType::Dir => unreachable!(),
                     }))
                 }
-                Content::StorageMd5sumResponse(r) => StorageMd5sum(r),
+                Content::StorageMd5sumResponse(r) => StorageMd5sum(r.md5sum),
                 Content::AppLockStatusResponse(r) => AppLockStatus(r),
                 Content::AppGetErrorResponse(r) => AppGetError(r),
                 Content::GuiScreenFrame(r) => GuiScreenFrame(r),

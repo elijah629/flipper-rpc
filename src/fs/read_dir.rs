@@ -16,14 +16,22 @@ use crate::{
 /// ReadDir traits for flipper filesystem
 pub trait FsReadDir {
     /// Lists the files in a directory at path
-    fn fs_read_dir(&mut self, path: impl AsRef<Path>) -> Result<impl Iterator<Item = ReadDirItem>>;
+    fn fs_read_dir(
+        &mut self,
+        path: impl AsRef<Path>,
+        include_md5: bool,
+    ) -> Result<impl Iterator<Item = ReadDirItem>>;
 }
 
 impl<T> FsReadDir for T
 where
     T: TransportRaw<proto::Main, proto::Main, Err = Error> + CommandIndex + std::fmt::Debug,
 {
-    fn fs_read_dir(&mut self, path: impl AsRef<Path>) -> Result<impl Iterator<Item = ReadDirItem>> {
+    fn fs_read_dir(
+        &mut self,
+        path: impl AsRef<Path>,
+        include_md5: bool,
+    ) -> Result<impl Iterator<Item = ReadDirItem>> {
         let path = os_str_to_str(path.as_ref().as_os_str())?.to_string();
 
         let mut items = Vec::new();
@@ -31,7 +39,7 @@ where
         // Send the initial request to start the chain
         self.send(Request::StorageList(ListRequest {
             path,
-            include_md5: true, // useful to have
+            include_md5,
             filter_max_size: 0,
         }))?;
 

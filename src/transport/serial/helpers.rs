@@ -47,7 +47,7 @@ pub(crate) fn drain_until_str<R: Read>(
 
         match reader.read(&mut buf[filled..filled + CHUNK_SIZE.min(BUF_LEN - filled)]) {
             Ok(0) => {
-                std::thread::sleep(Duration::from_millis(10));
+                std::thread::sleep(Duration::from_millis(10)); // Cooldown
                 continue;
             }
             Ok(n) => {

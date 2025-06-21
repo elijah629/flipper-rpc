@@ -17,6 +17,7 @@
 //! ```
 use crate::error::{Error, Result};
 use crate::logging::{debug, trace};
+use crate::transport::serial::TIMEOUT;
 use crate::{
     proto,
     transport::{
@@ -29,7 +30,6 @@ use crate::{
 };
 use prost::Message;
 use serialport::SerialPort;
-use std::time::Duration;
 
 /// A transport that sends RPC messages on a port
 ///
@@ -103,18 +103,20 @@ impl SerialRpcTransport {
     #[cfg_attr(feature = "tracing", tracing::instrument)]
     pub fn new<S: AsRef<str> + std::fmt::Debug>(port: S) -> Result<Self> {
         let mut port = serialport::new(port.as_ref(), FLIPPER_BAUD)
-            .timeout(Duration::from_secs(2))
+            .timeout(TIMEOUT)
             .open()?;
 
+        println!("{:?}", port.timeout());
+
         debug!("Draining port until prompt");
-        drain_until_str(&mut port, ">: ", Duration::from_secs(2))?;
+        drain_until_str(&mut port, ">: ", TIMEOUT)?;
 
         debug!("Calling start_rpc_session");
         port.write_all("start_rpc_session\r".as_bytes())?;
         port.flush()?;
 
         debug!("Draining until start_rpc_session has a \\n");
-        drain_until(&mut port, b'\n', Duration::from_secs(2))?;
+        drain_until(&mut port, b'\n', TIMEOUT)?;
 
         Ok(Self {
             command_index: 0,
@@ -247,9 +249,6 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
 
         self.port.flush()?;
 
-        trace!("read_rpc_proto");
-
-        trace!("optimized-2shot-read");
         // INFO: Super-overcomplicated but fast and efficent way of reading any length varint + data in exactly two
         // syscalls
         // Tries to use a stack-based approach when possible and does it efficently
@@ -277,7 +276,7 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
 
         debug!("Reading varint");
         while read < available_bytes {
-            match self.port.read(&mut buf[read..available_bytes]) {
+            match self.port.read(&mut buf[read..]) {
                 Ok(0) => break, // No more data
                 Ok(n) => {
                     available_bytes = self.port.bytes_to_read()? as usize;

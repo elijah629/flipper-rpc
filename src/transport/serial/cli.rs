@@ -21,9 +21,8 @@
 //! ```
 
 use crate::error::Error;
-use crate::transport::serial::helpers::drain_until_str;
+use crate::transport::serial::{TIMEOUT, helpers::drain_until_str};
 use crate::{error::Result, logging::debug};
-use std::time::Duration;
 
 use serialport::SerialPort;
 
@@ -73,11 +72,11 @@ impl SerialCliTransport {
     #[cfg_attr(feature = "tracing", tracing::instrument)]
     pub fn new<S: AsRef<str> + std::fmt::Debug>(port: S) -> Result<Self> {
         let mut port = serialport::new(port.as_ref(), FLIPPER_BAUD)
-            .timeout(Duration::from_secs(2))
+            .timeout(TIMEOUT)
             .open()?;
 
         debug!("Draining port until prompt");
-        drain_until_str(&mut port, ">: ", Duration::from_secs(2))?;
+        drain_until_str(&mut port, ">: ", TIMEOUT)?;
 
         Ok(Self { port })
     }
@@ -93,7 +92,7 @@ impl SerialCliTransport {
     #[cfg_attr(feature = "tracing", tracing::instrument)]
     pub fn into_rpc(mut self) -> Result<SerialRpcTransport> {
         self.send("start_rpc_session".to_string())?;
-        drain_until(&mut self.port, b'\n', Duration::from_secs(2))?;
+        drain_until(&mut self.port, b'\n', TIMEOUT)?;
 
         SerialRpcTransport::from_port(self.port)
     }

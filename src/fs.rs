@@ -31,6 +31,11 @@ pub mod metadata;
 #[cfg(feature = "fs-metadata")]
 pub use metadata::FsMetadata;
 
+#[cfg(feature = "fs-md5")]
+pub mod md5;
+#[cfg(feature = "fs-md5")]
+pub use md5::FsMd5;
+
 pub mod helpers;
 
 pub(crate) const CHUNK_SIZE: usize = 512;
