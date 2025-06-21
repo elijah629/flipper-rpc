@@ -403,8 +403,10 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
         note = "Use the serial-optimized-varint-reading instead. This function is very slow. Only use when optimized method is broken. Please submit a PR/Issue to GH if it is broken.",
         since = "0.4.0"
     )]
-    fn receive_raw(&mut self) -> Result<proto::Main, Self::Err> {
+    fn receive_raw(&mut self) -> std::result::Result<proto::Main, Self::Err> {
         trace!("bytewise-read");
+
+        use crate::proto::CommandStatus;
 
         self.port.flush()?;
 

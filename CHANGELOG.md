@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2
+
+- **rpc** fix the bytewise method of reading. Improper imports
+
 ## 0.5.1
 
 - **fs** fix `fs_read_dir`. ReadDir now reads the full chain, it now exhibits
