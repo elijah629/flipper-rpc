@@ -4,6 +4,8 @@ use std::path::Path;
 #[cfg(feature = "fs-write-progress-mpsc")]
 use std::sync::mpsc::Sender;
 
+use tracing::debug;
+
 use crate::{
     error::{Error, Result},
     fs::{CHUNK_SIZE, helpers::os_str_to_str},
@@ -62,6 +64,8 @@ where
         tx.send((sent, total_data))?;
 
         let command_id = self.command_index();
+
+        debug!("writing {} bytes to {path:?}", data.len());
 
         for (i, chunk) in chunks.enumerate() {
             let has_next = i != total_chunks - 1; // If this is not the last chunk, it has another.

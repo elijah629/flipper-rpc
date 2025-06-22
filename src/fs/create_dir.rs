@@ -2,6 +2,8 @@
 
 use std::path::Path;
 
+use tracing::debug;
+
 use crate::fs::helpers::os_str_to_str;
 use crate::transport::Transport;
 use crate::transport::serial::rpc::CommandIndex;
@@ -25,6 +27,8 @@ where
     #[doc(alias = "fs_mkdir")]
     fn fs_create_dir(&mut self, path: impl AsRef<Path>) -> Result<()> {
         let path = os_str_to_str(path.as_ref().as_os_str())?.to_string();
+
+        debug!("creating directory at {path}");
 
         self.send_and_receive(Request::StorageMkdir(path))?;
 

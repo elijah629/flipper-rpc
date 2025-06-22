@@ -16,7 +16,7 @@
 //! # }
 //! ```
 use crate::error::{Error, Result};
-use crate::logging::{debug, trace};
+use crate::logging::trace;
 use crate::transport::serial::TIMEOUT;
 use crate::{
     proto,
@@ -28,6 +28,8 @@ use crate::{
         },
     },
 };
+
+use crate::proto::CommandStatus;
 use prost::Message;
 use serialport::SerialPort;
 
@@ -106,14 +108,14 @@ impl SerialRpcTransport {
             .timeout(TIMEOUT)
             .open()?;
 
-        debug!("Draining port until prompt");
+        trace!("draining(prompt)");
         drain_until_str(&mut port, ">: ", TIMEOUT)?;
 
-        debug!("Calling start_rpc_session");
+        trace!("start_rpc_session");
         port.write_all("start_rpc_session\r".as_bytes())?;
         port.flush()?;
 
-        debug!("Draining until start_rpc_session has a \\n");
+        trace!("draining(start_rpc_session, \\n)");
         drain_until(&mut port, b'\n', TIMEOUT)?;
 
         Ok(Self {
@@ -201,8 +203,6 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     /// ```
     #[cfg_attr(feature = "tracing", tracing::instrument)]
     fn send_raw(&mut self, value: proto::Main) -> std::result::Result<(), Self::Err> {
-        trace!("send_rpc_proto");
-
         let encoded = value.encode_length_delimited_to_vec();
         self.port.write_all(&encoded)?;
 
@@ -243,8 +243,6 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     fn receive_raw(&mut self) -> std::result::Result<proto::Main, Self::Err> {
         use prost::bytes::Buf;
 
-        use crate::{proto::CommandStatus, transport::serial::helpers::varint_length};
-
         self.port.flush()?;
 
         // INFO: Super-overcomplicated but fast and efficent way of reading any length varint + data in exactly two
@@ -272,7 +270,7 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
         let mut read = 0;
         let mut available_bytes = buf.len();
 
-        debug!("Reading varint");
+        trace!("reading varint");
         while read < available_bytes {
             match self.port.read(&mut buf[read..]) {
                 Ok(0) => break, // No more data
@@ -293,15 +291,15 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
             .into());
         }
 
-        debug!("Decoding data length");
         let total_data_length = prost::decode_length_delimiter(&buf[..read])?;
+        trace!("decoded response length: {total_data_length}");
 
         // We have the length of the data, however some or all of the actual data is inside of buf,
         // after the varint, it just continues to RPC data.
 
         // How many bytes does the varint take up?
-        debug!("Calculating varint length");
-        let varint_length = varint_length(total_data_length);
+        let varint_length = prost::length_delimiter_len(total_data_length);
+        trace!("varint length: {varint_length}");
 
         // PERF: All the data that is not varint data, this is another main optimization,
         // we skip another read, as we have already read the data.
@@ -315,13 +313,14 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
         // total_data_length <= 10 - varint_length or total_data_length <= partial_data.len()
         let read_all_data = total_data_length <= partial_data.len();
 
+        trace!("decoding response");
         // PERF: If all of the data was read, the entire message is contained within the 10 byte buffer,
         // so we do not need to perfom another read operation
         let main = if read_all_data {
             // INFO: partial_data is all of the data in the buffer besides the varint and
             // trailing zeros if we read less than the buf's size
 
-            debug!("FASTEST: Decoding response");
+            trace!("L3 decode");
             proto::Main::decode(partial_data)?
         } else {
             // WARN: Data did NOT fit inside of the buffer, this means that some of the data is
@@ -345,7 +344,7 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
             let remaining_length = total_data_length - partial_data.len();
 
             if remaining_length <= STACK_LIMIT {
-                debug!("FAST: Decoding response");
+                trace!("L2 decode");
                 // Free speed for small messages!
                 let mut stack_buf = [0u8; STACK_LIMIT];
                 self.port.read_exact(&mut stack_buf[..remaining_length])?;
@@ -354,7 +353,13 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
 
                 proto::Main::decode(chained)?
             } else {
-                debug!("SLOW: Decoding response");
+                use tracing::warn;
+
+                trace!(
+                    "L1 decode - WARN: Increase STACK_LIMIT, current: {STACK_LIMIT}, need: {remaining_length}"
+                );
+                warn!("large response");
+
                 // Uses a slower heap (vec) based decoding for larger messages.
                 let mut remaining_data = vec![0u8; remaining_length];
                 self.port.read_exact(&mut remaining_data)?;
@@ -401,7 +406,9 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
         since = "0.4.0"
     )]
     fn receive_raw(&mut self) -> std::result::Result<proto::Main, Self::Err> {
-        trace!("bytewise-read");
+        warn!("bytewise serial read");
+
+        use tracing::warn;
 
         use crate::proto::CommandStatus;
 

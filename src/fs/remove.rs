@@ -2,6 +2,8 @@
 
 use std::path::Path;
 
+use tracing::debug;
+
 use crate::fs::helpers::os_str_to_str;
 use crate::proto::storage::DeleteRequest;
 use crate::transport::Transport;
@@ -27,6 +29,7 @@ where
     fn fs_remove(&mut self, path: impl AsRef<Path>, recursive: bool) -> Result<()> {
         let path = os_str_to_str(path.as_ref().as_os_str())?.to_string();
 
+        debug!("removing file {path:?}");
         let rm_req = Request::StorageDelete(DeleteRequest { path, recursive });
 
         self.send_and_receive(rm_req)?;

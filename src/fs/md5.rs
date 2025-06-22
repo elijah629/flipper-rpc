@@ -2,6 +2,8 @@
 
 use std::path::Path;
 
+use tracing::debug;
+
 use crate::fs::helpers::os_str_to_str;
 use crate::transport::Transport;
 use crate::transport::serial::rpc::CommandIndex;
@@ -25,9 +27,13 @@ where
     fn fs_md5(&mut self, path: impl AsRef<Path>) -> Result<String> {
         let path = os_str_to_str(path.as_ref().as_os_str())?.to_string();
 
+        debug!("requesting MD5 for {path}");
+
         let response: String = self
             .send_and_receive(Request::StorageMd5sum(path))?
             .try_into()?;
+
+        debug!("got {response}");
 
         Ok(response)
     }

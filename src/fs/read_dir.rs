@@ -2,6 +2,8 @@
 
 use std::path::Path;
 
+use tracing::trace;
+
 use crate::fs::helpers::os_str_to_str;
 use crate::rpc::res::{ReadDirItem, Response};
 use crate::transport::Transport;
@@ -36,6 +38,7 @@ where
 
         let mut items = Vec::new();
 
+        trace!("init readdir chain");
         // Send the initial request to start the chain
         self.send(Request::StorageList(ListRequest {
             path,
@@ -46,6 +49,7 @@ where
         loop {
             // Receive the next list items
             let response = self.receive_raw()?;
+            trace!("readdir chunk");
             let has_next = response.has_next;
 
             // Convert the raw response into usable data (Vec<ReadDirItem>)

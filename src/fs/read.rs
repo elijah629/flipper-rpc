@@ -3,6 +3,8 @@
 use std::borrow::Cow;
 use std::path::Path;
 
+use tracing::debug;
+
 use crate::fs::helpers::os_str_to_str;
 use crate::rpc::res::Response;
 use crate::transport::Transport;
@@ -97,12 +99,14 @@ where
         #[cfg(not(feature = "fs-read-metadata"))]
         let mut buf = Vec::new(); // Default to an empty buffer if metadata isn't fetched
 
+        debug!("init read chain");
         // Send the initial request to start the read chain
         self.send(Request::StorageRead(path.to_string()))?;
 
         loop {
             // Receive the next chunk of data (raw response to check for has_next flag)
             let response = self.receive_raw()?;
+            debug!("read rpc chunk");
 
             // Check if there are more chunks to read
             let has_next = response.has_next;
@@ -113,11 +117,7 @@ where
             match response {
                 // If no data was received, return an error
                 None => {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        "Failed to read file",
-                    )
-                    .into());
+                    return Err(std::io::Error::other("Failed to read file").into());
                 }
                 // Otherwise, add the data to the buffer
                 Some(data) => {

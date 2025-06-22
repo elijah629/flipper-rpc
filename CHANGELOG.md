@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.2
+
+- **logging** Improve logging across the entire application
+
 ## 0.6.1
 
 ### Fixed

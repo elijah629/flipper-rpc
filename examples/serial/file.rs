@@ -5,6 +5,7 @@ use flipper_rpc::{
     fs::{FsMetadata, FsRead, FsReadDir, FsRemove, FsWrite},
     transport::serial::{list_flipper_ports, rpc::SerialRpcTransport},
 };
+use std::time::Instant;
 
 fn main() -> Result<()> {
     let ports = list_flipper_ports()?;
@@ -16,7 +17,6 @@ fn main() -> Result<()> {
     let (tx, rx) = channel();
 
     let handle = std::thread::spawn(move || {
-        use std::time::Instant;
         let start = Instant::now();
         for (sent, total) in rx {
             println!("[+{:.2?}] Progress: {}/{}", start.elapsed(), sent, total);

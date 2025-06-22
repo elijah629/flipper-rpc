@@ -25,6 +25,7 @@ use crate::transport::serial::{TIMEOUT, helpers::drain_until_str};
 use crate::{error::Result, logging::debug};
 
 use serialport::SerialPort;
+use tracing::trace;
 
 use crate::transport::{Transport, serial::FLIPPER_BAUD};
 
@@ -103,6 +104,7 @@ impl Transport<String> for SerialCliTransport {
 
     #[cfg_attr(feature = "tracing", tracing::instrument)]
     fn send(&mut self, cmd: String) -> std::result::Result<(), Self::Err> {
+        trace!("running: {}", cmd);
         self.port.write_all(cmd.as_bytes())?;
         self.port.write_all(b"\r")?;
         self.port.flush()?;

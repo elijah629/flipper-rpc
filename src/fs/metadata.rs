@@ -2,6 +2,8 @@
 
 use std::path::Path;
 
+use tracing::{debug, trace};
+
 use crate::fs::helpers::os_str_to_str;
 use crate::transport::Transport;
 use crate::transport::serial::rpc::CommandIndex;
@@ -27,12 +29,15 @@ where
     fn fs_metadata(&mut self, path: impl AsRef<Path>) -> Result<u32> {
         let path = os_str_to_str(path.as_ref().as_os_str())?.to_string();
 
+        debug!("reading metadata for {path}");
+
         let response: Option<u32> = self
             .send_and_receive(Request::StorageMetadata(path))?
             .try_into()?;
 
-        let size = response
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::Other, "Failed to read file"))?;
+        trace!("response collected");
+
+        let size = response.ok_or_else(|| std::io::Error::other("Failed to read file"))?;
 
         Ok(size)
     }

@@ -29,7 +29,7 @@ pub struct FlipperDevice {
 /// Scans ports and filters by manufacturer name == "Flipper Devices Inc."
 #[cfg_attr(feature = "tracing", tracing::instrument)]
 pub fn list_flipper_ports() -> Result<Vec<FlipperDevice>, serialport::Error> {
-    debug!("Scanning for ports\n---");
+    debug!("scanning ports");
 
     let ports = serialport::available_ports()?;
 
@@ -48,12 +48,10 @@ pub fn list_flipper_ports() -> Result<Vec<FlipperDevice>, serialport::Error> {
                     }
                 }
             }
-            debug!("└── not flipper");
+            debug!("└── is not flipper");
             None
         })
         .collect();
-
-    debug!("---\nPort scanning complete");
 
     Ok(ports)
 }
