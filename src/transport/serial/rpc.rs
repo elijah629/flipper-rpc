@@ -251,6 +251,10 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
 
         // Hard limit for all stack-based buffers
         // NOTE: Adding 10 as Varint max length is 10
+
+        #[cfg(feature = "transport-serial-optimized-large-stack-limit")]
+        const STACK_LIMIT: usize = 10 + 512;
+        #[cfg(not(feature = "transport-serial-optimized-large-stack-limit"))]
         const STACK_LIMIT: usize = 10 + 128;
 
         let mut buf = [0u8; STACK_LIMIT];
@@ -358,7 +362,12 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
                 trace!(
                     "L1 decode - WARN: Increase STACK_LIMIT, current: {STACK_LIMIT}, need: {remaining_length}"
                 );
-                warn!("large response");
+                #[cfg(feature = "transport-serial-optimized-large-stack-limit")]
+                warn!("extremely large response ({remaining_length} bytes)");
+                #[cfg(not(feature = "transport-serial-optimized-large-stack-limit"))]
+                warn!(
+                    "large response ({remaining_length} bytes) consider enabling the 'transport-serial-optimized-large-stack-limit' feature"
+                );
 
                 // Uses a slower heap (vec) based decoding for larger messages.
                 let mut remaining_data = vec![0u8; remaining_length];
