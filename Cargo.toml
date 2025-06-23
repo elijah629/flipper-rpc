@@ -1,6 +1,6 @@
 [package]
 name = "flipper-rpc"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2024"
 description = "Flipper Zero Remote Procedure Call Library (RPC) – A Rust 🦀 library enabling apps to remotely control a Flipper Zero device, similar to qFlipper. Built using the official Flipper Zero protobuf definitions."
 repository = "https://github.com/elijah629/flipper-rpc"
@@ -56,7 +56,7 @@ transport-all = ["transport-serial-optimized"] # Enables all transports
   ## Serial
   transport-serial = ["transport-any", "dep:serialport", "dep:memchr"] # Enables support for serial transport
     transport-serial-optimized = ["transport-serial", "_opt-varint"]
-    transport-serial-optimized-large-stack-limit = [] # Increases stack limit from 10+128 to 10+512. Useful for large file transfers (warn: large response)
+    transport-serial-optimized-large-stack-limit = ["transport-serial-optimized"] # Increases stack limit from 10+128 to 10+512. Useful for large file transfers (warn: large response)
 
 # Internal modifiers, not to be used by other crates directly.
 _opt-varint = [] # Uses a faster protobuf read method which only uses 2 syscalls and all stack memory! One of which is for the varint.

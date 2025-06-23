@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.3
+
+- **serial-opt** Adds a new feature flag to increase the stack size in the
+  optimized serial reader, useful for very large files.
+
 ## 0.6.2
 
 - **logging** Improve logging across the entire application
