@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0
+
+### BREAKING CHANGES
+
+- **fs-createdir** No longer errors if the directory already exists.
+
 ## 0.6.3
 
 - **serial-opt** Adds a new feature flag to increase the stack size in the

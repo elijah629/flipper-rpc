@@ -46,8 +46,7 @@ where
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "Path is only a directory, not a file. Use fs_mkdir instead if you intend to create a directory")
-            )?.to_str().unwrap(); // SAFE: We just verified that the entire path was UTF-8 above in
-        // [`path_str`]
+            )?.to_str().unwrap(); // SAFETY: We just verified that the entire path was UTF-8 above
 
         let data = data.as_ref();
 
@@ -77,7 +76,7 @@ where
                     name: file.to_string(),
                     data: chunk.to_vec(),
                     size: chunk.len() as u32,
-                    md5sum: format!("{:x}", md5::compute(chunk)),
+                    md5sum: hex::encode(*md5::compute(chunk)),
                 }),
             })
             .into_rpc(command_id)

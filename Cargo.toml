@@ -1,6 +1,6 @@
 [package]
 name = "flipper-rpc"
-version = "0.6.3"
+version = "0.7.0"
 edition = "2024"
 description = "Flipper Zero Remote Procedure Call Library (RPC) – A Rust 🦀 library enabling apps to remotely control a Flipper Zero device, similar to qFlipper. Built using the official Flipper Zero protobuf definitions."
 repository = "https://github.com/elijah629/flipper-rpc"
@@ -18,8 +18,10 @@ serialport = { version = "4.7.2", default-features = false, optional = true }
 memchr = { version = "2.7.4", optional = true }
 
 # Transport
-md5 = { version = "0.7.0", optional = true }
 prost = { version = "0.14.1", optional = true }
+## MD5
+md5 = { version = "0.7.0", optional = true }
+hex = { version = "0.4.3", optional = true }
 
 # Errors & Logging
 thiserror = "2.0.12"
@@ -41,7 +43,7 @@ fs-all = ["fs-write", "fs-readdir", "fs-md5", "fs-read", "fs-read-metadata", "fs
   fs-read = ["fs-any"] # Enables read support
     fs-read-metadata = ["fs-read"] # Makes another RPC call when reading a file to determine the size of it. This saves on some memory allocation but introduces another RPC call.
     fs-read-progress-mpsc = ["fs-read-metadata"] # Requests the size of the file using fs-read-metadata to create a progress channel
-  fs-write = ["fs-any", "dep:md5"] # Enables write support. Requires md5 crate to calculate hashes for the flipper to verify.
+  fs-write = ["fs-any", "dep:md5", "dep:hex"] # Enables write support. Requires md5 crate to calculate hashes for the flipper to verify.
     fs-write-progress-mpsc = ["fs-write"] # Simple progress reposting using MPSC channels on fs-write.
   fs-readdir = [] # Enables the fs_read_dir api
   fs-remove = [] # Enables the fs_remove api

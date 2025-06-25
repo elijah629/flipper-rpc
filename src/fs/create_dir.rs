@@ -30,8 +30,13 @@ where
 
         debug!("creating directory at {path}");
 
-        self.send_and_receive(Request::StorageMkdir(path))?;
+        match self.send_and_receive(Request::StorageMkdir(path)) {
+            Ok(_) => Ok(()),
+            Err(Error::Rpc(crate::rpc::error::Error::StorageError(
+                crate::rpc::error::StorageError::AlreadyExists,
+            ))) => Ok(()),
 
-        Ok(())
+            Err(e) => Err(e),
+        }
     }
 }
