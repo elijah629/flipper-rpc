@@ -104,7 +104,7 @@ where
             .into_rpc(command_id)
             .with_has_next(has_next);
 
-            self.send_and_receive_raw(write_req)?;
+            self.send_raw(write_req)?;
 
             #[cfg(feature = "fs-write-progress-mpsc")]
             if let Some(ref tx) = tx {
@@ -113,7 +113,7 @@ where
             }
         }
 
-        //        self.receive_raw()?;
+        self.receive_raw()?;
         self.increment_command_index(2);
 
         Ok(())
