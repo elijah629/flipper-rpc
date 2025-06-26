@@ -1,5 +1,32 @@
 //! Helpers for working with the flipper's filesystem through RPC.
 
+/// Path to the external storage root (e.g., SD card).
+pub const EXTERNAL_STORAGE: &str = "/ext";
+
+/// Path to the internal flash storage.
+pub const INTERNAL_FLASH: &str = "/int";
+
+/// Path to the infrared database stored on external storage.
+pub const DB_INFARED: &str = "/ext/infared";
+
+/// Path to the iButton database stored on external storage.
+pub const DB_IBUTTON: &str = "/ext/ibutton";
+
+/// Path to the LF RFID database stored on external storage.
+pub const DB_LFRFID: &str = "/ext/lfrfid";
+
+/// Path to the BadUSB database stored on external storage.
+pub const DB_BADUSB: &str = "/ext/basusb";
+
+/// Path to the Sub-GHz database stored on external storage.
+pub const DB_SUBGHZ: &str = "/ext/subghz";
+
+/// Path to the NFC database stored on external storage.
+pub const DB_NFC: &str = "/ext/nfc";
+
+/// Path to the update directory on external storage.
+pub const UPDATE_DIR: &str = "/ext/update";
+
 #[cfg(feature = "fs-createdir")]
 pub mod create_dir;
 #[cfg(feature = "fs-createdir")]

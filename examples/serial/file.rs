@@ -24,7 +24,7 @@ fn main() -> Result<()> {
     });
 
     let data = (0..512 * 10).map(|i| (i / 512) as u8).collect::<Vec<_>>();
-    cli.fs_write("/ext/file2.txt", data, tx)?;
+    cli.fs_write("/ext/file2.txt", data, Some(tx))?;
 
     handle.join().unwrap();
 

@@ -24,7 +24,7 @@ pub trait FsWrite {
         &mut self,
         path: impl AsRef<Path>,
         data: impl AsRef<[u8]>,
-        #[cfg(feature = "fs-write-progress-mpsc")] tx: Sender<(usize, usize)>,
+        #[cfg(feature = "fs-write-progress-mpsc")] tx: Option<Sender<(usize, usize)>>,
     ) -> Result<()>;
 }
 
@@ -36,7 +36,7 @@ where
         &mut self,
         path: impl AsRef<Path>,
         data: impl AsRef<[u8]>,
-        #[cfg(feature = "fs-write-progress-mpsc")] tx: Sender<(usize, usize)>,
+        #[cfg(feature = "fs-write-progress-mpsc")] tx: Option<Sender<(usize, usize)>>,
     ) -> Result<()> {
         let path = path.as_ref();
 
@@ -60,7 +60,9 @@ where
         let mut sent = 0;
 
         #[cfg(feature = "fs-write-progress-mpsc")]
-        tx.send((sent, total_data))?;
+        if let Some(ref tx) = tx {
+            tx.send((sent, total_data))?;
+        }
 
         let command_id = self.command_index();
 
@@ -89,7 +91,7 @@ where
             }
 
             #[cfg(feature = "fs-write-progress-mpsc")]
-            {
+            if let Some(ref tx) = tx {
                 sent += chunk.len();
                 tx.send((sent, total_data))?;
             }
