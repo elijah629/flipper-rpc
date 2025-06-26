@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.0
+
+### BREAKING CHANGES
+
+- **mpsc** When MPSC is enabled, make tx an Option.
+
+### Fixed
+
+- **fs-write** Taken from qFlipper, when writing large files, insert a ping
+  every once and a while to keep the connection alive.
+
 ## 0.7.1
 
 - **fs-tar-extract** Implements the Tar Extraction API, useful for firmware
