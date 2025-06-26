@@ -1,6 +1,6 @@
 [package]
 name = "flipper-rpc"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2024"
 description = "Flipper Zero Remote Procedure Call Library (RPC) – A Rust 🦀 library enabling apps to remotely control a Flipper Zero device, similar to qFlipper. Built using the official Flipper Zero protobuf definitions."
 repository = "https://github.com/elijah629/flipper-rpc"
@@ -38,7 +38,8 @@ easy-rpc = ["proto"] # Easy to use RPC wrapper to avoid manual construction of p
   proto = ["dep:prost"] # Base codec support
 
 # Filesystem wrappers
-fs-all = ["fs-write", "fs-readdir", "fs-md5", "fs-read", "fs-read-metadata", "fs-metadata", "fs-remove", "fs-createdir"] # recommended settings and all fs apis
+# recommended settings and all fs apis
+fs-all = ["fs-write", "fs-readdir", "fs-md5", "fs-read", "fs-read-metadata", "fs-metadata", "fs-remove", "fs-createdir", "fs-tar-extract"]
   fs-any = ["easy-rpc"] # Enables the fs wrapper module. By default no filesystem components are enabled. use fs-* for that.
   fs-read = ["fs-any"] # Enables read support
     fs-read-metadata = ["fs-read"] # Makes another RPC call when reading a file to determine the size of it. This saves on some memory allocation but introduces another RPC call.
@@ -51,6 +52,7 @@ fs-all = ["fs-write", "fs-readdir", "fs-md5", "fs-read", "fs-read-metadata", "fs
   fs-metadata = [] # Enables the fs_metadata api
   fs-progress-mpsc = ["fs-write-progress-mpsc", "fs-read-progress-mpsc"]
   fs-md5 = [] # Unlike what the name says, this function does not calculate any MD5 hashes. It asks the flipper to!
+  fs-tar-extract = [] # Extracts tgz files on the flipper
 
 # Transport
 transport-all = ["transport-serial-optimized"] # Enables all transports

@@ -97,7 +97,7 @@ where
         };
 
         #[cfg(not(feature = "fs-read-metadata"))]
-        let mut buf = Vec::new(); // Default to an empty buffer if metadata isn't fetched
+        let mut buf = vec![]; // Default to an empty buffer if metadata isn't fetched
 
         debug!("init read chain");
         // Send the initial request to start the read chain

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.1
+
+- **fs-tar-extract** Implements the Tar Extraction API, useful for firmware
+  updates.
+
 ## 0.7.0
 
 ### BREAKING CHANGES

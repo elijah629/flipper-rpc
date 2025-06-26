@@ -36,6 +36,11 @@ pub mod md5;
 #[cfg(feature = "fs-md5")]
 pub use md5::FsMd5;
 
+#[cfg(feature = "fs-tar-extract")]
+pub mod tar;
+#[cfg(feature = "fs-tar-extract")]
+pub use tar::FsTarExtract;
+
 pub mod helpers;
 
 pub(crate) const CHUNK_SIZE: usize = 512;
