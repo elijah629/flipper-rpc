@@ -86,8 +86,8 @@ where
         // CHUNKS_PER_PING chunks.
 
         for (i, chunk) in chunks.enumerate() {
-            if i % CHUNKS_PER_PING == 0 {
-                self.send_raw(Request::Ping(vec![0]).into_rpc(command_id))?;
+            if i > CHUNKS_PER_PING && i % CHUNKS_PER_PING == 0 {
+                self.send_and_receive_raw(Request::Ping(vec![0]).into_rpc(command_id + 1))?;
             }
             let has_next = i != total_chunks - 1; // If this is not the last chunk, it has another.
 
@@ -104,7 +104,7 @@ where
             .into_rpc(command_id)
             .with_has_next(has_next);
 
-            self.send_raw(write_req)?;
+            self.send_and_receive_raw(write_req)?;
 
             #[cfg(feature = "fs-write-progress-mpsc")]
             if let Some(ref tx) = tx {
@@ -113,8 +113,8 @@ where
             }
         }
 
-        self.receive_raw()?;
-        self.increment_command_index(1);
+        //        self.receive_raw()?;
+        self.increment_command_index(2);
 
         Ok(())
     }
