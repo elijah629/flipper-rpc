@@ -1,6 +1,5 @@
 //! FsWrite module
 
-use crate::transport::Transport;
 use std::path::Path;
 #[cfg(feature = "fs-write-progress-mpsc")]
 use std::sync::mpsc::Sender;
@@ -88,7 +87,7 @@ where
 
         for (i, chunk) in chunks.enumerate() {
             if i % CHUNKS_PER_PING == 0 {
-                self.send_and_receive(Request::Ping(vec![0]))?;
+                self.send_raw(Request::Ping(vec![0]).into_rpc(command_id))?;
             }
             let has_next = i != total_chunks - 1; // If this is not the last chunk, it has another.
 
