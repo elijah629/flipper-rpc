@@ -1,5 +1,6 @@
 //! FsWrite module
 
+use crate::transport::Transport;
 use std::path::Path;
 #[cfg(feature = "fs-write-progress-mpsc")]
 use std::sync::mpsc::Sender;
@@ -27,6 +28,19 @@ pub trait FsWrite {
         #[cfg(feature = "fs-write-progress-mpsc")] tx: Option<Sender<(usize, usize)>>,
     ) -> Result<()>;
 }
+
+/// I did a few tests and this number came out to ~67.2 KiB/s for my machine, rounding down to 50
+/// for most machines
+pub(crate) const THROUGHPUT_KIB: usize = 50;
+
+/// How many chunks in a second?
+pub(crate) const CHUNKS_PER_SECOND: usize = (THROUGHPUT_KIB * 1024) / CHUNK_SIZE;
+
+/// How many seconds between pings
+pub(crate) const PING_INTERVAL_SECONDS: usize = 5; // 5 Seconds per ping
+
+/// How many chunks between pings?
+pub(crate) const CHUNKS_PER_PING: usize = PING_INTERVAL_SECONDS * CHUNKS_PER_SECOND;
 
 impl<T> FsWrite for T
 where
@@ -68,7 +82,14 @@ where
 
         debug!("writing {} bytes to {path:?}", data.len());
 
+        // UPDATE: Files must be sent with occasional PINGS! This tells the flipper to not close
+        // the connection, since we have not read anything for a while. Inserts a ping every
+        // CHUNKS_PER_PING chunks.
+
         for (i, chunk) in chunks.enumerate() {
+            if i % CHUNKS_PER_PING == 0 {
+                self.send_and_receive(Request::Ping(vec![0]))?;
+            }
             let has_next = i != total_chunks - 1; // If this is not the last chunk, it has another.
 
             let write_req = Request::StorageWrite(WriteRequest {
