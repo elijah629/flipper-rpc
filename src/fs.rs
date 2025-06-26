@@ -70,4 +70,5 @@ pub use tar::FsTarExtract;
 
 pub mod helpers;
 
-pub(crate) const CHUNK_SIZE: usize = 512;
+// https://github.com/liamhays/flipwire/blob/a6b2aee31aad39a0322cfbda3d19fa43851189e0/src/protobuf_codec.rs#L21
+pub(crate) const CHUNK_SIZE: usize = 350;
