@@ -56,7 +56,7 @@ pub enum Request {
     PlayAvAlert,
     /// Requests the device's protobuf version
     SystemProtobufVersion,
-    /// Updates the device to a newer firmware. DFU, .tgz, resource, etc.
+    /// Updates the device to a newer firmware. DFU, .fuf, resource, etc.
     SystemUpdate(UpdateRequest),
     /// Requests power info
     SystemPowerInfo,
@@ -85,7 +85,7 @@ pub enum Request {
     StorageBackupCreate(String),
     /// Restores from a local backup
     StorageBackupRestore(String),
-    /// Extracts a .tgz stored on the flipper (tar, out)
+    /// Extracts a .tar stored on the flipper (tar, out)
     StorageTarExtract(String, String),
     /// Opens an app
     AppStart(StartRequest),

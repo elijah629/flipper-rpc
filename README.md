@@ -74,7 +74,7 @@ Or add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-flipper-rpc = { features = [], version = "0.4.0" } # Replace with the latest version from crates.io
+flipper-rpc = { features = [], version = "0.9.0" } # Replace with the latest version from crates.io
 ```
 
 ## 🚀 Usage

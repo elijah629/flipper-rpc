@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.0
+
+### BREAKING CHANGES
+
+- **fs-mkdir** Return weather the directory already existed.
+- **mpsc** MPSC no longer transmits data length to save on MPSC transmission
+  data. Please just call .len on your data and use it withing the handling
+  thread if you need it.
+- **fs-tar** renamed `fs_extract_tgz` to `fs_extract_tar` as that function does
+  not handle gzipped data.
+
 ## 0.8.0
 
 ### BREAKING CHANGES

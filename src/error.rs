@@ -33,7 +33,7 @@ pub enum Error {
     #[error("mpsc: {0}")]
     #[cfg(feature = "fs-progress-mpsc")]
     /// MPSC Error in the storage module when using progress-mpsc
-    MpscSend(#[from] std::sync::mpsc::SendError<(usize, usize)>),
+    MpscSend(#[from] std::sync::mpsc::SendError<usize>),
 }
 
 /// Result type based on error::Error

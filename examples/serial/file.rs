@@ -15,15 +15,16 @@ fn main() -> Result<()> {
     let mut cli = SerialRpcTransport::new(port)?;
 
     let (tx, rx) = channel();
+    let data = (0..512 * 10).map(|i| (i / 512) as u8).collect::<Vec<_>>();
+    let len = data.len();
 
     let handle = std::thread::spawn(move || {
         let start = Instant::now();
-        for (sent, total) in rx {
-            println!("[+{:.2?}] Progress: {}/{}", start.elapsed(), sent, total);
+        for sent in rx {
+            println!("[+{:.2?}] Progress: {}/{}", start.elapsed(), sent, len);
         }
     });
 
-    let data = (0..512 * 10).map(|i| (i / 512) as u8).collect::<Vec<_>>();
     cli.fs_write("/ext/file2.txt", data, Some(tx))?;
 
     handle.join().unwrap();

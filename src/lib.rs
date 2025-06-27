@@ -1,3 +1,4 @@
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![deny(missing_docs)]
 #![deny(unused_must_use)]
 #![deny(clippy::all)]

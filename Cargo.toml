@@ -1,6 +1,6 @@
 [package]
 name = "flipper-rpc"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2024"
 description = "Flipper Zero Remote Procedure Call Library (RPC) – A Rust 🦀 library enabling apps to remotely control a Flipper Zero device, similar to qFlipper. Built using the official Flipper Zero protobuf definitions."
 repository = "https://github.com/elijah629/flipper-rpc"
@@ -52,18 +52,15 @@ fs-all = ["fs-write", "fs-readdir", "fs-md5", "fs-read", "fs-read-metadata", "fs
   fs-metadata = [] # Enables the fs_metadata api
   fs-progress-mpsc = ["fs-write-progress-mpsc", "fs-read-progress-mpsc"]
   fs-md5 = [] # Unlike what the name says, this function does not calculate any MD5 hashes. It asks the flipper to!
-  fs-tar-extract = [] # Extracts tgz files on the flipper
+  fs-tar-extract = [] # Extracts tar (NON GZ) files on the flipper
 
 # Transport
 transport-all = ["transport-serial-optimized"] # Enables all transports
   transport-any = ["proto"] # Enables support for any transport, all transports require this.
   ## Serial
   transport-serial = ["transport-any", "dep:serialport", "dep:memchr"] # Enables support for serial transport
-    transport-serial-optimized = ["transport-serial", "_opt-varint"]
+    transport-serial-optimized = ["transport-serial"] # super fast serial reading decoding
     transport-serial-optimized-large-stack-limit = ["transport-serial-optimized"] # Increases stack limit from 10+128 to 10+512. Useful for large file transfers (warn: large response)
-
-# Internal modifiers, not to be used by other crates directly.
-_opt-varint = [] # Uses a faster protobuf read method which only uses 2 syscalls and all stack memory! One of which is for the varint.
 
 # Adds logging through tokio tracing
 tracing = ["dep:tracing"]

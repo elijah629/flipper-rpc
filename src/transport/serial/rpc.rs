@@ -239,7 +239,7 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     /// # }
     /// ```
     #[cfg_attr(feature = "tracing", tracing::instrument)]
-    #[cfg(feature = "_opt-varint")]
+    #[cfg(feature = "transport-serial-optimized")]
     fn receive_raw(&mut self) -> std::result::Result<proto::Main, Self::Err> {
         use prost::bytes::Buf;
 
@@ -272,6 +272,7 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
         // Error-proof code!
 
         let mut read = 0;
+
         let mut available_bytes = buf.len();
 
         trace!("reading varint");
@@ -408,7 +409,7 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
     ///
     /// Included for compatablity in case the improved function breaks, the user can fallback to
     /// this while they wait for their issue to be resolved through gh
-    #[cfg(not(feature = "_opt-varint"))]
+    #[cfg(not(feature = "transport-serial-optimized"))]
     #[cfg_attr(feature = "tracing", tracing::instrument)]
     #[deprecated(
         note = "Use the serial-optimized-varint-reading instead. This function is very slow. Only use when optimized method is broken. Please submit a PR/Issue to GH if it is broken.",

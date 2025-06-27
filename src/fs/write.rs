@@ -19,12 +19,12 @@ use crate::{
 
 /// Write traits for flipper filesystem
 pub trait FsWrite {
-    /// Writes a &[u8] to a file on the flipper zero to dst
+    /// Writes a &[u8] to a file on the flipper zero to dst, wrapper of fs_write_reader.
     fn fs_write(
         &mut self,
         path: impl AsRef<Path>,
         data: impl AsRef<[u8]>,
-        #[cfg(feature = "fs-write-progress-mpsc")] tx: Option<Sender<(usize, usize)>>,
+        #[cfg(feature = "fs-write-progress-mpsc")] tx: Option<Sender<usize>>,
     ) -> Result<()>;
 }
 
@@ -49,7 +49,7 @@ where
         &mut self,
         path: impl AsRef<Path>,
         data: impl AsRef<[u8]>,
-        #[cfg(feature = "fs-write-progress-mpsc")] tx: Option<Sender<(usize, usize)>>,
+        #[cfg(feature = "fs-write-progress-mpsc")] tx: Option<Sender<usize>>,
     ) -> Result<()> {
         let path = path.as_ref();
 
@@ -67,14 +67,11 @@ where
         let total_chunks = chunks.len();
 
         #[cfg(feature = "fs-write-progress-mpsc")]
-        let total_data = data.len();
-
-        #[cfg(feature = "fs-write-progress-mpsc")]
         let mut sent = 0;
 
         #[cfg(feature = "fs-write-progress-mpsc")]
         if let Some(ref tx) = tx {
-            tx.send((sent, total_data))?;
+            tx.send(sent)?;
         }
 
         let command_id = self.command_index();
@@ -109,7 +106,7 @@ where
             #[cfg(feature = "fs-write-progress-mpsc")]
             if let Some(ref tx) = tx {
                 sent += chunk.len();
-                tx.send((sent, total_data))?;
+                tx.send(sent)?;
             }
         }
 
