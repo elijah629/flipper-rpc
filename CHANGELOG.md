@@ -1,13 +1,14 @@
 # Changelog
 
-## 0.9.2
+## 0.9.3
 
 - Makes the crate work without `tracing`. Makes `serialport` use an existing
   version instead of the unpublished alpha0
-
-## 0.9.1
-
 - Fixes the `serialport` version to a custom fork with new dependencies.
+
+## 0.9.2, 0.9.1
+
+> ![WARNING] Yanked
 
 ## 0.9.0
 
