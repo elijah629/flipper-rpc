@@ -358,7 +358,7 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
 
                 proto::Main::decode(chained)?
             } else {
-                use tracing::warn;
+                use crate::logging::warn;
 
                 trace!(
                     "L1 decode - WARN: Increase STACK_LIMIT, current: {STACK_LIMIT}, need: {remaining_length}"
@@ -416,10 +416,6 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
         since = "0.4.0"
     )]
     fn receive_raw(&mut self) -> std::result::Result<proto::Main, Self::Err> {
-        warn!("bytewise serial read");
-
-        use tracing::warn;
-
         use crate::proto::CommandStatus;
 
         self.port.flush()?;

@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use tracing::debug;
+use crate::logging::debug;
 
 use crate::fs::helpers::os_str_to_str;
 use crate::transport::Transport;

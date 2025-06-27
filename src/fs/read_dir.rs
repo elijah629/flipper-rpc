@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use tracing::trace;
+use crate::logging::trace;
 
 use crate::fs::helpers::os_str_to_str;
 use crate::rpc::res::{ReadDirItem, Response};

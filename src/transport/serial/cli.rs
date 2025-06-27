@@ -24,8 +24,8 @@ use crate::error::Error;
 use crate::transport::serial::{TIMEOUT, helpers::drain_until_str};
 use crate::{error::Result, logging::debug};
 
+use crate::logging::trace;
 use serialport::SerialPort;
-use tracing::trace;
 
 use crate::transport::{Transport, serial::FLIPPER_BAUD};
 

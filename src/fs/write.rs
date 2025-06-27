@@ -4,7 +4,7 @@ use std::path::Path;
 #[cfg(feature = "fs-write-progress-mpsc")]
 use std::sync::mpsc::Sender;
 
-use tracing::debug;
+use crate::logging::debug;
 
 use crate::{
     error::{Error, Result},

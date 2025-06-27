@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 use std::path::Path;
 
-use tracing::debug;
+use crate::logging::debug;
 
 use crate::fs::helpers::os_str_to_str;
 use crate::rpc::res::Response;
@@ -93,7 +93,7 @@ where
         #[cfg(feature = "fs-read-metadata")]
         let mut buf = match size {
             Some(size) => Vec::with_capacity(size as usize), // Pre-allocate buffer if size is known
-            None => Vec::new(),
+            None => vec![],
         };
 
         #[cfg(not(feature = "fs-read-metadata"))]
