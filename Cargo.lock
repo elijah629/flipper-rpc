@@ -192,8 +192,8 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "serialport"
-version = "4.7.3-alpha.0"
-source = "git+https://github.com/elijah629/serialport-rs#4c31b48c9f77d68ed4b39e3f927c35a6a53e13ad"
+version = "4.7.2"
+source = "git+https://github.com/elijah629/serialport-rs#51f8ffe12e9ceee0f2b2ecc3b811fb8b5188026e"
 dependencies = [
  "bitflags",
  "cfg-if",
