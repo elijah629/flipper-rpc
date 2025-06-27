@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1
+
+Fixes the `serialport` version to a custom fork with new dependencies.
+
 ## 0.9.0
 
 ### BREAKING CHANGES
