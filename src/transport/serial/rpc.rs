@@ -297,14 +297,14 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
         }
 
         let total_data_length = prost::decode_length_delimiter(&buf[..read])?;
-        trace!("decoded response length: {total_data_length}");
+        trace!(total_data_length, "decoded response length");
 
         // We have the length of the data, however some or all of the actual data is inside of buf,
         // after the varint, it just continues to RPC data.
 
         // How many bytes does the varint take up?
         let varint_length = prost::length_delimiter_len(total_data_length);
-        trace!("varint length: {varint_length}");
+        trace!(varint_length, "varint length");
 
         // PERF: All the data that is not varint data, this is another main optimization,
         // we skip another read, as we have already read the data.
@@ -364,10 +364,11 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
                     "L1 decode - WARN: Increase STACK_LIMIT, current: {STACK_LIMIT}, need: {remaining_length}"
                 );
                 #[cfg(feature = "transport-serial-optimized-large-stack-limit")]
-                warn!("extremely large response ({remaining_length} bytes)");
+                warn!(remaining_length, "extremely large response");
                 #[cfg(not(feature = "transport-serial-optimized-large-stack-limit"))]
                 warn!(
-                    "large response ({remaining_length} bytes) consider enabling the 'transport-serial-optimized-large-stack-limit' feature"
+                    remaining_length,
+                    "large response; consider enabling the 'transport-serial-optimized-large-stack-limit' feature"
                 );
 
                 // Uses a slower heap (vec) based decoding for larger messages.

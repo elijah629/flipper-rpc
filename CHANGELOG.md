@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.5
+
+- Fix docs.rs feature docs
+
 ## 0.9.3
 
 - Makes the crate work without `tracing`. Makes `serialport` use an existing

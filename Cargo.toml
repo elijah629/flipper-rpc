@@ -1,6 +1,6 @@
 [package]
 name = "flipper-rpc"
-version = "0.9.3"
+version = "0.9.4"
 edition = "2024"
 description = "Flipper Zero Remote Procedure Call Library (RPC) – A Rust 🦀 library enabling apps to remotely control a Flipper Zero device, similar to qFlipper. Built using the official Flipper Zero protobuf definitions."
 repository = "https://github.com/elijah629/flipper-rpc"
@@ -26,10 +26,7 @@ hex = { version = "0.4.3", optional = true }
 # Errors & Logging
 thiserror = "2.0.12"
 tracing = { version = "0.1.41", optional = true }
-
-# TODO: Remove  when serialport-rs fixes nix version. This is only here to decreace binary size by deduping a few APIs
-[patch.crates-io]
-serialport = { version = "4.7.2", git = "https://github.com/elijah629/serialport-rs" }
+document-features = { version = "0.2.11", optional = true }
 
 [features]
 default = ["minimal"]
@@ -78,3 +75,7 @@ required-features = ["transport-serial-optimized", "easy-rpc"]
 name = "serial-file"
 path = "examples/serial/file.rs"
 required-features = ["transport-serial-optimized", "fs-write", "fs-readdir", "fs-remove", "fs-progress-mpsc"]
+
+[package.metadata.docs.rs]
+all-features = true
+features = [ "document-features" ]
