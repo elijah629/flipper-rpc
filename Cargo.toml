@@ -1,6 +1,6 @@
 [package]
 name = "flipper-rpc"
-version = "0.9.4"
+version = "0.9.5"
 edition = "2024"
 description = "Rust bindings and serial transport helpers for the Flipper Zero RPC protocol."
 repository = "https://github.com/elijah629/flipper-rpc"

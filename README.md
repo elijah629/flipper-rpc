@@ -52,7 +52,7 @@ Example `Cargo.toml` entry:
 
 ```toml
 [dependencies]
-flipper-rpc = { version = "0.9.4", features = ["easy-rpc", "transport-serial-optimized"] }
+flipper-rpc = { version = "0.9.5", features = ["easy-rpc", "transport-serial-optimized"] }
 ```
 
 ## Example
