@@ -7,7 +7,11 @@ pub const EXTERNAL_STORAGE: &str = "/ext";
 pub const INTERNAL_FLASH: &str = "/int";
 
 /// Path to the infrared database stored on external storage.
-pub const DB_INFARED: &str = "/ext/infared";
+pub const DB_INFRARED: &str = "/ext/infrared";
+
+#[deprecated(note = "use DB_INFRARED")]
+/// Deprecated misspelling kept for compatibility.
+pub const DB_INFARED: &str = DB_INFRARED;
 
 /// Path to the iButton database stored on external storage.
 pub const DB_IBUTTON: &str = "/ext/ibutton";
@@ -16,7 +20,7 @@ pub const DB_IBUTTON: &str = "/ext/ibutton";
 pub const DB_LFRFID: &str = "/ext/lfrfid";
 
 /// Path to the BadUSB database stored on external storage.
-pub const DB_BADUSB: &str = "/ext/basusb";
+pub const DB_BADUSB: &str = "/ext/badusb";
 
 /// Path to the Sub-GHz database stored on external storage.
 pub const DB_SUBGHZ: &str = "/ext/subghz";

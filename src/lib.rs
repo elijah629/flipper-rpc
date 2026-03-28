@@ -1,21 +1,25 @@
 #![cfg_attr(
-    all(doc, feature = "document-features"),
+    all(docsrs, feature = "document-features"),
     doc = ::document_features::document_features!()
 )]
 #![cfg_attr(
-    all(doc, feature = "document-features"),
+    all(docsrs, feature = "document-features"),
     feature(doc_cfg, doc_auto_cfg)
 )]
 #![deny(missing_docs)]
 #![deny(unused_must_use)]
 #![deny(clippy::all)]
 
-//! `flipper-rpc` is a Rust library for sending and receiving RPC messages to and
-//! from a Flipper Zero over a serial connection.
+//! `flipper-rpc` provides Rust access to the Flipper Zero RPC protocol.
 //!
-//! ## Usage
+//! The crate is split into three layers:
 //!
-//! Cannot be described here, please see each submodule for examples as they all depend on features not available here.
+//! - [`proto`] exposes generated protobuf bindings for the official Flipper schema.
+//! - [`rpc`] adds higher-level request and response enums over [`proto::Main`].
+//! - [`transport`] contains serial transports for CLI and RPC sessions.
+//!
+//! Filesystem helpers live under [`fs`] and are enabled feature-by-feature so downstream crates can
+//! keep compile times and dependency surface small.
 
 // I don't have the time to write docs for auto-generated things
 #[cfg(feature = "proto")]

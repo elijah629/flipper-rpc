@@ -112,7 +112,7 @@ where
             let has_next = response.has_next;
 
             // Convert the raw response into usable data (Cow<[u8]>)
-            let response: Option<Cow<'static, [u8]>> = Response::from(response).try_into()?;
+            let response: Option<Cow<'static, [u8]>> = Response::try_from(response)?.try_into()?;
 
             match response {
                 // If no data was received, return an error

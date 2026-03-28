@@ -94,7 +94,7 @@ where
     fn receive(&mut self) -> Result<Response, Self::Err> {
         let response = self.receive_raw()?;
 
-        let rpc = response.into();
+        let rpc = Response::try_from(response)?;
 
         Ok(rpc)
     }

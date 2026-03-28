@@ -382,9 +382,7 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
         };
 
         // Should be a valid command status
-        CommandStatus::try_from(main.command_status)
-            .unwrap()
-            .into_result(main)
+        decode_command_status(main.command_status)?.into_result(main)
     }
 
     /// Reads a length-delimited Protobuf RPC message from the flipper. This must be called
@@ -441,8 +439,10 @@ impl TransportRaw<proto::Main> for SerialRpcTransport {
         let main = proto::Main::decode(msg_buf.as_slice())?;
 
         // Should be a valid command status
-        CommandStatus::try_from(main.command_status)
-            .unwrap()
-            .into_result(main)
+        decode_command_status(main.command_status)?.into_result(main)
     }
+}
+
+fn decode_command_status(raw: i32) -> Result<CommandStatus> {
+    CommandStatus::try_from(raw).map_err(|_| Error::InvalidCommandStatus(raw))
 }

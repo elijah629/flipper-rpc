@@ -2,35 +2,32 @@
 
 use std::borrow::Cow;
 
-use crate::proto::app::{AppStateResponse, GetErrorResponse, LockStatusResponse};
-use crate::proto::desktop::Status;
-use crate::proto::gpio::{GetOtgModeResponse, GetPinModeResponse, ReadPinResponse};
-use crate::proto::gui::ScreenFrame;
-use crate::proto::main::Content;
-use crate::proto::property::GetResponse;
-use crate::proto::storage::file::FileType;
-use crate::proto::storage::{InfoResponse, TimestampResponse};
-use crate::proto::system::{
-    DeviceInfoResponse, PowerInfoResponse, ProtobufVersionResponse, UpdateResponse,
+use crate::proto::{
+    self,
+    app::{AppStateResponse, GetErrorResponse, LockStatusResponse},
+    desktop::Status,
+    gpio::{GetOtgModeResponse, GetPinModeResponse, ReadPinResponse},
+    gui::ScreenFrame,
+    main::Content,
+    property::GetResponse,
+    storage::{InfoResponse, TimestampResponse, file::FileType},
+    system::{
+        DateTime, DeviceInfoResponse, PowerInfoResponse, ProtobufVersionResponse, UpdateResponse,
+    },
 };
-use crate::proto::{self, system::DateTime};
 
 macro_rules! define_into_impl {
     ($enum_name:ident $variant:ident $typ:ty) => {
-        impl std::convert::TryInto<$typ> for $enum_name {
+        impl std::convert::TryFrom<$enum_name> for $typ {
             type Error = crate::error::Error;
 
-            fn try_into(self) -> Result<$typ, Self::Error> {
-                match self {
+            fn try_from(value: $enum_name) -> Result<$typ, Self::Error> {
+                match value {
                     $enum_name::$variant(x) => Ok(x),
-                    x => Err(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        format!(
-                            "Cannot convert {x:?} into a {}",
-                            stringify!($enum_name::$variant)
-                        ),
-                    )
-                    .into()),
+                    other => Err(crate::error::Error::UnexpectedResponse {
+                        expected: stringify!($variant),
+                        actual: other.kind(),
+                    }),
                 }
             }
         }
@@ -104,62 +101,218 @@ pub enum ReadDirItem {
     File(String, u32, Option<String>),
 }
 
-// Only extracts raw content, ignores errors
-impl From<proto::Main> for Response {
-    fn from(val: proto::Main) -> Self {
+impl Response {
+    fn kind(&self) -> &'static str {
+        match self {
+            Self::Empty => "Empty",
+            Self::Ping(_) => "Ping",
+            Self::SystemDeviceInfo(_) => "SystemDeviceInfo",
+            Self::SystemGetDatetime(_) => "SystemGetDatetime",
+            Self::SystemProtobufVersion(_) => "SystemProtobufVersion",
+            Self::SystemUpdate(_) => "SystemUpdate",
+            Self::SystemPowerInfo(_) => "SystemPowerInfo",
+            Self::StorageInfo(_) => "StorageInfo",
+            Self::StorageTimestamp(_) => "StorageTimestamp",
+            Self::StorageStat(_) => "StorageStat",
+            Self::StorageList(_) => "StorageList",
+            Self::StorageRead(_) => "StorageRead",
+            Self::StorageMd5sum(_) => "StorageMd5sum",
+            Self::AppLockStatus(_) => "AppLockStatus",
+            Self::AppGetError(_) => "AppGetError",
+            Self::GuiScreenFrame(_) => "GuiScreenFrame",
+            Self::GpioGetPinMode(_) => "GpioGetPinMode",
+            Self::GpioReadPin(_) => "GpioReadPin",
+            Self::GpioGetOtgMode(_) => "GpioGetOtgMode",
+            Self::AppState(_) => "AppState",
+            Self::PropertyGet(_) => "PropertyGet",
+            Self::DesktopStatus(_) => "DesktopStatus",
+        }
+    }
+}
+
+fn decode_storage_file_type(raw: i32) -> Result<FileType, crate::error::Error> {
+    FileType::try_from(raw).map_err(|_| crate::error::Error::InvalidStorageFileType(raw))
+}
+
+impl TryFrom<proto::Main> for Response {
+    type Error = crate::error::Error;
+
+    fn try_from(value: proto::Main) -> Result<Self, Self::Error> {
         use Response::*;
-        let content = val.content;
+        let content = value.content;
+
         match content {
-            None | Some(Content::Empty(_)) => Empty,
+            None | Some(Content::Empty(_)) => Ok(Empty),
             Some(x) => match x {
-                Content::SystemPingResponse(r) => Ping(r.data),
-                Content::SystemDeviceInfoResponse(r) => SystemDeviceInfo(r),
-                Content::SystemGetDatetimeResponse(r) => SystemGetDatetime(r.datetime),
-                Content::SystemProtobufVersionResponse(r) => SystemProtobufVersion(r),
-                Content::SystemUpdateResponse(r) => SystemUpdate(r),
-                Content::SystemPowerInfoResponse(r) => SystemPowerInfo(r),
-                Content::StorageInfoResponse(r) => StorageInfo(r),
-                Content::StorageTimestampResponse(r) => StorageTimestamp(r),
-                Content::StorageStatResponse(r) => StorageStat(r.file.map(|x| x.size)),
-                Content::StorageListResponse(r) => StorageList(
-                    r.file
+                Content::SystemPingResponse(r) => Ok(Ping(r.data)),
+                Content::SystemDeviceInfoResponse(r) => Ok(SystemDeviceInfo(r)),
+                Content::SystemGetDatetimeResponse(r) => Ok(SystemGetDatetime(r.datetime)),
+                Content::SystemProtobufVersionResponse(r) => Ok(SystemProtobufVersion(r)),
+                Content::SystemUpdateResponse(r) => Ok(SystemUpdate(r)),
+                Content::SystemPowerInfoResponse(r) => Ok(SystemPowerInfo(r)),
+                Content::StorageInfoResponse(r) => Ok(StorageInfo(r)),
+                Content::StorageTimestampResponse(r) => Ok(StorageTimestamp(r)),
+                Content::StorageStatResponse(r) => Ok(StorageStat(r.file.map(|x| x.size))),
+                Content::StorageListResponse(r) => {
+                    let items = r
+                        .file
                         .into_iter()
-                        .map(|file| match FileType::try_from(file.r#type).unwrap() {
-                            FileType::File => ReadDirItem::File(
-                                file.name,
-                                file.size,
-                                if file.md5sum.is_empty() {
-                                    None
-                                } else {
-                                    Some(file.md5sum)
-                                },
-                            ),
-                            FileType::Dir => ReadDirItem::Dir(file.name),
+                        .map(|file| {
+                            Ok(match decode_storage_file_type(file.r#type)? {
+                                FileType::File => ReadDirItem::File(
+                                    file.name,
+                                    file.size,
+                                    if file.md5sum.is_empty() {
+                                        None
+                                    } else {
+                                        Some(file.md5sum)
+                                    },
+                                ),
+                                FileType::Dir => ReadDirItem::Dir(file.name),
+                            })
                         })
-                        .collect::<Vec<_>>(),
-                ),
+                        .collect::<Result<Vec<_>, crate::error::Error>>()?;
+
+                    Ok(StorageList(items))
+                }
                 Content::StorageReadResponse(r) => {
                     // Response would have returned an error if the requested path was a dir
                     // As of now, reading does not return any data about the file besides the data.
                     // No name/hash/size etc.
-                    StorageRead(r.file.map(|x| match FileType::try_from(x.r#type).unwrap() {
-                        FileType::File => x.data.into(),
-                        FileType::Dir => unreachable!(),
-                    }))
-                }
-                Content::StorageMd5sumResponse(r) => StorageMd5sum(r.md5sum),
-                Content::AppLockStatusResponse(r) => AppLockStatus(r),
-                Content::AppGetErrorResponse(r) => AppGetError(r),
-                Content::GuiScreenFrame(r) => GuiScreenFrame(r),
-                Content::GpioGetPinModeResponse(r) => GpioGetPinMode(r),
-                Content::GpioReadPinResponse(r) => GpioReadPin(r),
-                Content::GpioGetOtgModeResponse(r) => GpioGetOtgMode(r),
-                Content::AppStateResponse(r) => AppState(r),
-                Content::PropertyGetResponse(r) => PropertyGet(r),
-                Content::DesktopStatus(r) => DesktopStatus(r),
+                    let data = match r.file {
+                        None => None,
+                        Some(file) => match decode_storage_file_type(file.r#type)? {
+                            FileType::File => Some(file.data.into()),
+                            FileType::Dir => {
+                                return Err(crate::error::Error::InvalidRpcPayload(
+                                    "storage read response contained a directory entry",
+                                ));
+                            }
+                        },
+                    };
 
-                _ => panic!("Cannot convert {:?} into RpcResponse", x),
+                    Ok(StorageRead(data))
+                }
+                Content::StorageMd5sumResponse(r) => Ok(StorageMd5sum(r.md5sum)),
+                Content::AppLockStatusResponse(r) => Ok(AppLockStatus(r)),
+                Content::AppGetErrorResponse(r) => Ok(AppGetError(r)),
+                Content::GuiScreenFrame(r) => Ok(GuiScreenFrame(r)),
+                Content::GpioGetPinModeResponse(r) => Ok(GpioGetPinMode(r)),
+                Content::GpioReadPinResponse(r) => Ok(GpioReadPin(r)),
+                Content::GpioGetOtgModeResponse(r) => Ok(GpioGetOtgMode(r)),
+                Content::AppStateResponse(r) => Ok(AppState(r)),
+                Content::PropertyGetResponse(r) => Ok(PropertyGet(r)),
+                Content::DesktopStatus(r) => Ok(DesktopStatus(r)),
+
+                _ => Err(crate::error::Error::UnsupportedRpcContent),
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proto::{
+        self,
+        main::Content,
+        storage::{self, file::FileType},
+        system,
+    };
+
+    #[test]
+    fn converts_ping_response() {
+        let message = proto::Main {
+            command_id: 1,
+            command_status: proto::CommandStatus::Ok.into(),
+            has_next: false,
+            content: Some(Content::SystemPingResponse(system::PingResponse {
+                data: vec![1, 2, 3, 4],
+            })),
+        };
+
+        let response = Response::try_from(message).expect("ping response should decode");
+
+        assert_eq!(response, Response::Ping(vec![1, 2, 3, 4]));
+    }
+
+    #[test]
+    fn rejects_request_messages() {
+        let message = proto::Main {
+            command_id: 1,
+            command_status: proto::CommandStatus::Ok.into(),
+            has_next: false,
+            content: Some(Content::SystemPingRequest(system::PingRequest {
+                data: vec![1, 2, 3, 4],
+            })),
+        };
+
+        let error = Response::try_from(message).expect_err("request variants are not responses");
+
+        assert!(matches!(error, crate::error::Error::UnsupportedRpcContent));
+    }
+
+    #[test]
+    fn rejects_unknown_storage_file_types() {
+        let message = proto::Main {
+            command_id: 1,
+            command_status: proto::CommandStatus::Ok.into(),
+            has_next: false,
+            content: Some(Content::StorageListResponse(storage::ListResponse {
+                file: vec![storage::File {
+                    r#type: 99,
+                    name: "bad".to_string(),
+                    size: 1,
+                    data: Vec::new(),
+                    md5sum: String::new(),
+                }],
+            })),
+        };
+
+        let error = Response::try_from(message).expect_err("unknown file types should fail");
+
+        assert!(matches!(
+            error,
+            crate::error::Error::InvalidStorageFileType(99)
+        ));
+    }
+
+    #[test]
+    fn typed_conversions_report_variant_mismatches() {
+        let error = Vec::<u8>::try_from(Response::StorageMd5sum("abc".to_string()))
+            .expect_err("mismatched conversions should fail");
+
+        assert!(matches!(
+            error,
+            crate::error::Error::UnexpectedResponse {
+                expected: "Ping",
+                actual: "StorageMd5sum",
+            }
+        ));
+    }
+
+    #[test]
+    fn reads_file_payloads() {
+        let message = proto::Main {
+            command_id: 1,
+            command_status: proto::CommandStatus::Ok.into(),
+            has_next: false,
+            content: Some(Content::StorageReadResponse(storage::ReadResponse {
+                file: Some(storage::File {
+                    r#type: FileType::File.into(),
+                    name: "note.txt".to_string(),
+                    size: 4,
+                    data: b"test".to_vec(),
+                    md5sum: String::new(),
+                }),
+            })),
+        };
+
+        let response = Response::try_from(message).expect("storage read should decode");
+
+        assert_eq!(
+            response,
+            Response::StorageRead(Some(Cow::Owned(b"test".to_vec())))
+        );
     }
 }

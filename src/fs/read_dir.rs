@@ -53,7 +53,7 @@ where
             let has_next = response.has_next;
 
             // Convert the raw response into usable data (Vec<ReadDirItem>)
-            let chunk: Vec<ReadDirItem> = Response::from(response).try_into()?;
+            let chunk: Vec<ReadDirItem> = Response::try_from(response)?.try_into()?;
             items.extend(chunk);
 
             // If this is the last chunk, stop reading

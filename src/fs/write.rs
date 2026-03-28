@@ -55,11 +55,15 @@ where
 
         let path_str = os_str_to_str(path.as_os_str())?;
 
-        let file = path.file_name().ok_or_else(||
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Path is only a directory, not a file. Use fs_mkdir instead if you intend to create a directory")
-            )?.to_str().unwrap(); // SAFETY: We just verified that the entire path was UTF-8 above
+        let file = path
+            .file_name()
+            .and_then(std::ffi::OsStr::to_str)
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "path must include a UTF-8 file name; use fs_mkdir for directories",
+                )
+            })?;
 
         let data = data.as_ref();
 

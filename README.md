@@ -1,190 +1,117 @@
-# `flipper-rpc` – Serial RPC Control for the Flipper Zero
+# flipper-rpc
 
-![Crates.io Version](https://img.shields.io/crates/v/flipper-rpc)
-![Crates.io License](https://img.shields.io/crates/l/flipper-rpc)
-![docs.rs](https://img.shields.io/docsrs/flipper-rpc)
-![Crates.io MSRV](https://img.shields.io/crates/msrv/flipper-rpc)
-![Crates.io License](https://img.shields.io/crates/l/flipper-rpc)
-![Crates.io Downloads (recent)](https://img.shields.io/crates/dr/flipper-rpc)
-![GitHub Repo stars](https://img.shields.io/github/stars/elijah629/flipper-rpc)
+`flipper-rpc` is a Rust library for talking to a Flipper Zero over its RPC
+serial protocol. It ships generated protobuf bindings, a higher-level
+request/response layer, serial transports, and feature-gated filesystem helpers.
 
-> _Finally!_ A Rust library to control a Flipper Zero through RPC commands.
+The crate tracks the official Flipper protobuf schema published in
+[`flipperdevices/flipperzero-protobuf`](https://github.com/flipperdevices/flipperzero-protobuf).
+The serial framing uses protobuf length-delimited messages, which means each
+`PB.Main` envelope is prefixed with a varint length as described in the
+[Protocol Buffers encoding guide](https://protobuf.dev/programming-guides/encoding/).
 
-`flipper-rpc` is a Rust library for sending and receiving RPC messages to and
-from a Flipper Zero over a serial connection.
+## Crate layout
 
----
-
-## ✨ Features
-
-- `tokio-tracing` compatible
-- Automatic Flipper detection
-- Full
-  [flipperzero-protobuf](https://github.com/flipperdevices/flipperzero-protobuf)
-  support
-- Serial-based RPC interface
-- Full filesystem support
-- Ergonomic, user-friendly API so you don't have to use raw protobuf messages.
-
-### 🚧 Tentative
-
-- Bluetooth support (maybe 🤞)
-
-### 🧪 Planned
-
-**Nothing for now...** Add an issue if you want something cool added!
-
----
+- `proto`: generated Rust types for the Flipper RPC schema
+- `rpc`: ergonomic `Request` and `Response` enums over `proto::Main`
+- `transport`: serial CLI and serial RPC transports
+- `fs`: feature-gated filesystem helpers built on top of `easy-rpc`
 
 ## Features
 
-| Feature                      | Description                                             |
-| ---------------------------- | ------------------------------------------------------- |
-| `default`                    | `minimal`                                               |
-| `full`                       | Enables \*-all                                          |
-| `minimal`                    | Just `proto`                                            |
-| `proto`                      | Protobuf encoding/decoding                              |
-| `easy-rpc`                   | High‑level RPC helper API                               |
-| `fs-all`                     | Enables all filesystem operations                       |
-| `fs-read`                    | Read files from Flipper Zero                            |
-| `fs-write`                   | Write files to Flipper Zero                             |
-| `fs-readdir`                 | List directory contents                                 |
-| `fs-remove`                  | Remove files or directories                             |
-| `fs-createdir`               | Create directories on device                            |
-| `transport-all`              | All available transport mechanisms                      |
-| `transport-any`              | Base transport support                                  |
-| `transport-serial`           | Serial‑port communication                               |
-| `transport-serial-optimized` | Optimized serial transport with a better varint decoder |
-| `tracing`                    | Enable logging via `tokio-tracing`                      |
+| Feature | Purpose |
+| --- | --- |
+| `default` | Enables `minimal` |
+| `minimal` | Generated protobuf types only (`proto`) |
+| `proto` | `prost` encoding and decoding support |
+| `easy-rpc` | High-level request and response wrappers |
+| `fs-all` | Enables all filesystem helper traits |
+| `fs-read` | Read files from the device |
+| `fs-read-metadata` | Pre-size read buffers by fetching metadata first |
+| `fs-write` | Write files to the device |
+| `fs-readdir` | List directory contents |
+| `fs-remove` | Remove files or directories |
+| `fs-createdir` | Create directories |
+| `fs-metadata` | Query file size metadata |
+| `fs-md5` | Ask the device to calculate an MD5 for a file |
+| `fs-tar-extract` | Ask the device to extract a `.tar` archive |
+| `transport-serial` | Serial transport support |
+| `transport-serial-optimized` | Faster serial response reader |
+| `transport-serial-optimized-large-stack-limit` | Larger stack buffer for very large responses |
+| `tracing` | Integrate with `tracing` spans and events |
 
-## 📦 Installation
+Prefer enabling only the features you actually use.
 
-> [!IMPORTANT]
-> Please decide on features, and don't just use the `full` feature since you are
-> lazy. Actually read the table above and enable what you need as it will
-> significantly decrease compile time.
+## Installation
 
-Run this command
-
-```sh
-cargo add flipper-rpc --features <FEATURES>
+```bash
+cargo add flipper-rpc --features easy-rpc,transport-serial-optimized
 ```
 
-Or add this to your `Cargo.toml`:
+Example `Cargo.toml` entry:
 
 ```toml
 [dependencies]
-flipper-rpc = { features = [], version = "0.9.0" } # Replace with the latest version from crates.io
+flipper-rpc = { version = "0.9.4", features = ["easy-rpc", "transport-serial-optimized"] }
 ```
 
-## 🚀 Usage
-
-### Playing an alert
+## Example
 
 ```rust
-let ports = list_flipper_ports()?;
-let port = &ports[0].port_name;
+use flipper_rpc::error::Result;
+use flipper_rpc::rpc::{req::Request, res::Response};
+use flipper_rpc::transport::serial::{list_flipper_ports, rpc::SerialRpcTransport};
+use flipper_rpc::transport::Transport;
 
-let mut cli = SerialRpcTransport::new(port.to_string())?;
+fn main() -> Result<()> {
+    let port = list_flipper_ports()?
+        .into_iter()
+        .next()
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "no flipper found"))?
+        .port_name;
 
-let response = cli.send_and_receive(Request::SystemPlayAudiovisualAlert)?;
+    let mut rpc = SerialRpcTransport::new(port)?;
+    let response = rpc.send_and_receive(Request::Ping(vec![1, 2, 3, 4]))?;
+
+    assert_eq!(response, Response::Ping(vec![1, 2, 3, 4]));
+    Ok(())
+}
 ```
 
----
+## Protocol notes
 
-## 📚 Flipper Zero RPC Protocol Documentation
+The current transport implementation follows the same structure documented by
+the official schema and the existing Flipper client implementations:
 
-After far too much searching for usable documentation on this API (and finding
-_nothing_), I decided to write my own. Enjoy!
+1. Open the serial device and drain the text prompt (`">: "`).
+2. Enter RPC mode with `start_rpc_session\r`.
+3. Encode a `proto::Main` message with `prost` length-delimited framing.
+4. Read the length varint, then read and decode the protobuf payload.
+5. Check `command_status` before converting the payload into `rpc::Response`.
 
-> [!NOTE]
-> Read the [source code](src/rpc) for information about actual communication,
-> the following information is only for serial transport (**BLE COMING SOON**)
+The official protobuf schema defines the `PB.Main` envelope with these core
+fields:
 
----
+- `command_id`
+- `command_status`
+- `has_next`
+- `content`
 
-### 🔌 Connecting
+That envelope is what this crate reads and writes on the wire.
 
-1. **Make a serial connection.** Use your preferred serial library. This crate
-   uses [`serialport`](https://docs.rs/serialport), which is simple and only
-   requires the port path and a baud rate.
+## Development
 
-2. **Baud rate... Apparently doesn't matter** Serial over USB (`CDC-ACM`)
-   abstracts baud rate away, it must be reasonable and capable by the hardware
-   and software.
+`flipper-rpc` includes a Nix dev shell and pinned Rust toolchain:
 
-3. **Drain the buffer.** Keep reading until you see the shell prompt string
-   `">: "`. This clears old buffer content, since reads begin from the buffer
-   start — not your last write.
-
-4. **Enter RPC mode.** Write the string: `start_rpc_session\r`
-   > **Note:** `\r\n` does **not** work here. I do not know why.
-
-5. **Drain again.** Read until you receive `\n`, which indicates that the
-   Flipper has accepted the command.
-
----
-
-### 📤 Sending RPC Commands
-
-1. **Encode the request using protobuf.**
-2. **Prefix the message with its length** (encoded as a **Varint**, not a
-   regular byte).
-
-> 🔢 Varint is a variable-length integer encoding. The Flipper expects this as
-> the first byte(s) of your message.
-
-#### Example: Sending `PingRequest` with `[1, 2, 3, 4]`
-
-Raw request bytes:
-
-```text
-[8, 42, 6, 10, 4, 1, 2, 3, 4]
+```bash
+nix develop
+cargo fmt -- --check
+cargo test --features easy-rpc
+cargo clippy --all-features -- -D warnings
 ```
 
-- `8` is the Varint-encoded length of the rest of the message.
+## Related work
 
----
-
-### 📥 Receiving RPC Responses
-
-1. **Read the length prefix** The length is a Varint and can be up to **10
-   bytes**.
-
-   - Slow way: Read byte-by-byte until the MSB is `1`.
-   - Fast way: See my optimized logic in
-     [`src/transport/serial/rpc.rs`](src/transport/serial/rpc.rs),
-     `read_raw(...)` as it is too long to mention here.
-
-2. **Read and decode** Once the length is known, read that many bytes, then
-   decode with your protobuf deserializer.
-
-#### Example response for the ping
-
-```text
-[8, 50, 6, 10, 4, 1, 2, 3, 4]
-```
-
----
-
-## 🤔 Why This Exists
-
-This crate was built to support another project I'm working on: 👉
-[`flippy`](https://github.com/elijah629/flippy) – a CLI tool for updating
-firmware and databases on the Flipper Zero from remote sources.
-
-Since there was no existing way to speak RPC to the Flipper in Rust, I split
-that functionality into this standalone library.
-
-> 💫 _Shameless plug:_ If you find this useful,
-> [give it a star](https://github.com/elijah629/flippy) ⭐ — I'd appreciate it!
-
-## Credits
-
-This project would not be possible without two amazing repos:
-
-- [flipwire](https://github.com/liamhays/flipwire). Gave amazing examples in
-  source code that helped me implement the codec even better.
-- [flipperzero_protobuf_py](https://github.com/flipperdevices/flipperzero_protobuf_py)
-  More source-code examples, although in python, this library demonstrates the
-  serial API very well and exactly how to use it and handle it properly.
+- [`flipperdevices/flipperzero-protobuf`](https://github.com/flipperdevices/flipperzero-protobuf)
+- [`flipperdevices/flipperzero_protobuf_py`](https://github.com/flipperdevices/flipperzero_protobuf_py)
+- [`liamhays/flipwire`](https://github.com/liamhays/flipwire)

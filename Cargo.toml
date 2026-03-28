@@ -2,68 +2,66 @@
 name = "flipper-rpc"
 version = "0.9.4"
 edition = "2024"
-description = "Flipper Zero Remote Procedure Call Library (RPC) – A Rust 🦀 library enabling apps to remotely control a Flipper Zero device, similar to qFlipper. Built using the official Flipper Zero protobuf definitions."
+description = "Rust bindings and serial transport helpers for the Flipper Zero RPC protocol."
 repository = "https://github.com/elijah629/flipper-rpc"
 documentation = "https://docs.rs/flipper-rpc"
-keywords = ["flipperzero", "rpc", "qflipper", "control", "flipper"]
-categories = ["encoding", "api-bindings", "development-tools"]
 readme = "README.md"
 license = "MIT"
 rust-version = "1.86.0"
+keywords = ["flipperzero", "rpc", "protobuf", "serial", "qflipper"]
+categories = ["api-bindings", "development-tools", "encoding"]
 
 [dependencies]
-
-# Serial
-serialport = { version = "4.7.2", default-features = false, optional = true }
-memchr = { version = "2.7.4", optional = true }
-
-# Transport
-prost = { version = "0.14.1", optional = true }
-## MD5
-md5 = { version = "0.8.0", optional = true }
+document-features = { version = "0.2.11", optional = true }
 hex = { version = "0.4.3", optional = true }
-
-# Errors & Logging
+md5 = { version = "0.8.0", optional = true }
+memchr = { version = "2.7.4", optional = true }
+prost = { version = "0.14.1", optional = true }
+serialport = { version = "4.7.2", default-features = false, optional = true }
 thiserror = "2.0.12"
 tracing = { version = "0.1.41", optional = true }
-document-features = { version = "0.2.11", optional = true }
 
 [features]
 default = ["minimal"]
 
-# Feature packs
-full = ["fs-all", "transport-all"] # NOTE: Not recommended, please manually add the features you ACTUALLY need
-  minimal = ["proto"]
+minimal = ["proto"]
+full = ["fs-all", "transport-all"] # broad convenience feature; prefer selecting only what you need
 
-easy-rpc = ["proto"] # Easy to use RPC wrapper to avoid manual construction of proto::Main's
-  proto = ["dep:prost"] # Base codec support
+proto = ["dep:prost"]
+easy-rpc = ["proto"] # ergonomic request/response wrappers over proto::Main
 
 # Filesystem wrappers
-# recommended settings and all fs apis
-fs-all = ["fs-write", "fs-readdir", "fs-md5", "fs-read", "fs-read-metadata", "fs-metadata", "fs-remove", "fs-createdir", "fs-tar-extract"]
-  fs-any = ["easy-rpc"] # Enables the fs wrapper module. By default no filesystem components are enabled. use fs-* for that.
-  fs-read = ["fs-any"] # Enables read support
-    fs-read-metadata = ["fs-read"] # Makes another RPC call when reading a file to determine the size of it. This saves on some memory allocation but introduces another RPC call.
-    fs-read-progress-mpsc = ["fs-read-metadata"] # Requests the size of the file using fs-read-metadata to create a progress channel
-  fs-write = ["fs-any", "dep:md5", "dep:hex"] # Enables write support. Requires md5 crate to calculate hashes for the flipper to verify.
-    fs-write-progress-mpsc = ["fs-write"] # Simple progress reposting using MPSC channels on fs-write.
-  fs-readdir = [] # Enables the fs_read_dir api
-  fs-remove = [] # Enables the fs_remove api
-  fs-createdir = [] # Enables the fs_create_dir api
-  fs-metadata = [] # Enables the fs_metadata api
-  fs-progress-mpsc = ["fs-write-progress-mpsc", "fs-read-progress-mpsc"]
-  fs-md5 = [] # Unlike what the name says, this function does not calculate any MD5 hashes. It asks the flipper to!
-  fs-tar-extract = [] # Extracts tar (NON GZ) files on the flipper
+fs-any = ["easy-rpc"]
+fs-all = [
+    "fs-createdir",
+    "fs-md5",
+    "fs-metadata",
+    "fs-read",
+    "fs-read-metadata",
+    "fs-readdir",
+    "fs-remove",
+    "fs-tar-extract",
+    "fs-write",
+]
+fs-read = ["fs-any"]
+fs-read-metadata = ["fs-read"]
+fs-read-progress-mpsc = ["fs-read-metadata"]
+fs-write = ["fs-any", "dep:hex", "dep:md5"]
+fs-write-progress-mpsc = ["fs-write"]
+fs-readdir = ["fs-any"]
+fs-remove = ["fs-any"]
+fs-createdir = ["fs-any"]
+fs-metadata = ["fs-any"]
+fs-md5 = ["fs-any"]
+fs-tar-extract = ["fs-any"]
+fs-progress-mpsc = ["fs-read-progress-mpsc", "fs-write-progress-mpsc"]
 
-# Transport
-transport-all = ["transport-serial-optimized"] # Enables all transports
-  transport-any = ["proto"] # Enables support for any transport, all transports require this.
-  ## Serial
-  transport-serial = ["transport-any", "dep:serialport", "dep:memchr"] # Enables support for serial transport
-    transport-serial-optimized = ["transport-serial"] # super fast serial reading decoding
-    transport-serial-optimized-large-stack-limit = ["transport-serial-optimized"] # Increases stack limit from 10+128 to 10+512. Useful for large file transfers (warn: large response)
+transport-any = ["proto"]
+transport-all = ["transport-serial-optimized"]
+transport-serial = ["transport-any", "dep:memchr", "dep:serialport"]
+transport-serial-optimized = ["transport-serial"]
+transport-serial-optimized-large-stack-limit = ["transport-serial-optimized"]
 
-# Adds logging through tokio tracing
 tracing = ["dep:tracing"]
 
 [[example]]
@@ -78,4 +76,4 @@ required-features = ["transport-serial-optimized", "fs-write", "fs-readdir", "fs
 
 [package.metadata.docs.rs]
 all-features = true
-features = [ "document-features" ]
+features = ["document-features"]
